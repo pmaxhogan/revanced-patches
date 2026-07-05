@@ -1,6 +1,7 @@
 package app.morphe.extension.youtube.patches.shorts;
 
 import static app.morphe.extension.shared.utils.Utils.hideViewUnderCondition;
+import static app.morphe.extension.shared.utils.Utils.showToastShort;
 import static app.morphe.extension.shared.utils.Utils.validateValue;
 
 import android.view.View;
@@ -15,11 +16,8 @@ import java.lang.ref.WeakReference;
 
 import app.morphe.extension.shared.utils.Logger;
 import app.morphe.extension.shared.utils.ResourceUtils;
-import app.morphe.extension.youtube.patches.player.OpenVideosFullscreenHookPatch;
 import app.morphe.extension.youtube.settings.Settings;
-import app.morphe.extension.youtube.shared.NavigationBar.NavigationButton;
 import app.morphe.extension.youtube.shared.ShortsPlayerState;
-import app.morphe.extension.youtube.utils.VideoUtils;
 import kotlin.Unit;
 
 @SuppressWarnings("unused")
@@ -196,42 +194,20 @@ public class ShortsPatch {
     }
 
     public static boolean openShortInRegularPlayer(String videoId) {
+        // Vantage hard-disables Shorts. This hook is injected unconditionally at the
+        // Shorts playback-start seam (PlaybackStartDescriptor dispatch), so it is
+        // reached for EVERY entry point: the bottom-nav Shorts tab, the launcher
+        // shortcut, the home-screen widget, a direct Shorts link, a Short inside a
+        // playlist or the Liked Videos playlist, and the channel Shorts tab.
+        // Returning true tells the injected code the launch was handled, so the
+        // native Shorts player is never shown - and we deliberately open nothing in
+        // its place. No Short can play by any means; regular videos are untouched.
         try {
-            ShortsPlayerType shortsPlayerType = Settings.SHORTS_PLAYER_TYPE.get();
-            if (shortsPlayerType == ShortsPlayerType.SHORTS_PLAYER) {
-                return false; // Default unpatched behavior.
-            }
-
-            if (videoId.isEmpty()) {
-                // Shorts was opened using launcher app shortcut.
-                //
-                // This check will not detect if the Shorts app shortcut is used
-                // while the app is running in the background (instead the regular player is opened).
-                // To detect that the hooked method map parameter can be checked
-                // if integer key 'com.google.android.apps.youtube.app.endpoint.flags'
-                // has bitmask 16 set.
-                //
-                // This use case seems unlikely if the user has the Shorts
-                // set to open in the regular player, so it's ignored as
-                // checking the map makes the patch more complicated.
-                Logger.printDebug(() -> "Ignoring Short with no videoId");
-                return false;
-            }
-
-            if (NavigationButton.getSelectedNavigationButton() == NavigationButton.SHORTS) {
-                return false; // Always use Shorts player for the Shorts nav button.
-            }
-
-            OpenVideosFullscreenHookPatch.setOpenNextVideoFullscreen(
-                    shortsPlayerType == ShortsPlayerType.REGULAR_PLAYER_FULLSCREEN
-            );
-            VideoUtils.openVideo(videoId, true);
-            return true;
+            showToastShort("Shorts are disabled");
         } catch (Exception ex) {
-            OpenVideosFullscreenHookPatch.setOpenNextVideoFullscreen(null);
-            Logger.printException(() -> "openShortInRegularPlayer failure", ex);
-            return false;
+            Logger.printException(() -> "openShortInRegularPlayer (blocked) failure", ex);
         }
+        return true;
     }
 
 }
