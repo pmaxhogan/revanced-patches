@@ -1,0 +1,115 @@
+name: Sync upstream (anddea dev)
+
+# Keeps this fork's dev branch current with anddea/revanced-patches:dev without
+# manual work. Nightly + manual. If the fork is behind upstream, it opens a PR
+# that merges upstream in, and AUTO-MERGES it only if it is cleanly mergeable
+# (no conflict with Max's baked-in commits). If it conflicts, it leaves the PR
+# open for Max to resolve by hand.
+#
+# SECURITY (why this cannot be abused to auto-merge malicious code):
+#   - Triggers are ONLY schedule + workflow_dispatch. NOT pull_request /
+#     pull_request_target, so an attacker's PR can never run this job or reach
+#     the PAT, and the job always runs the workflow code committed on dev.
+#   - It creates its OWN PR whose head is anddea/revanced-patches:dev (upstream's
+#     real branch, which no attacker controls) and merges ONLY that specific PR,
+#     by number, and ONLY after asserting head-repo == anddea/revanced-patches
+#     AND head-ref == dev AND mergeable == MERGEABLE. It never scans for, nor
+#     merges, any other/external/labeled PR. So the only thing that can ever be
+#     auto-merged is genuine upstream anddea code.
+#   - Pair this with branch protection on dev (PRs only, no direct pushes).
+#
+# Requires repo secret SYNC_PAT: a fine-grained PAT scoped to THIS repo with
+# Contents:RW, Pull requests:RW, Workflows:RW. The PAT (not the default
+# GITHUB_TOKEN) is used so the auto-merge's push to dev triggers build-mpp.yml
+# (GITHUB_TOKEN-authored events do not trigger further workflows).
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC nightly (before the Vantage 09:00 build)
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM: anddea/revanced-patches
+  BRANCH: dev
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout fork dev (with PAT)
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT }}
+
+      - name: Detect if behind upstream
+        id: check
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/${UPSTREAM}.git" 2>/dev/null || true
+          git fetch --quiet upstream "${BRANCH}"
+          BEHIND="$(git rev-list --count "HEAD..upstream/${BRANCH}")"
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "Fork is $BEHIND commit(s) behind ${UPSTREAM}:${BRANCH}."
+
+      - name: Sync via PR (auto-merge if clean, else leave open)
+        if: steps.check.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          set -euo pipefail
+          UP_OWNER="${UPSTREAM%%/*}"
+
+          # Reuse an existing open sync PR (a prior conflicting one) instead of
+          # spamming duplicates. A sync PR is identified by head anddea:dev -> dev.
+          NUM="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
+                   --base "$BRANCH" --head "${UP_OWNER}:${BRANCH}" \
+                   --json number --jq '.[0].number // empty' || true)"
+          if [ -z "$NUM" ]; then
+            NUM="$(gh pr create --repo "$GITHUB_REPOSITORY" \
+                     --base "$BRANCH" --head "${UP_OWNER}:${BRANCH}" \
+                     --title "Sync upstream ${UPSTREAM}:${BRANCH} ($(date -u +%Y-%m-%d))" \
+                     --body "Automated nightly sync from ${UPSTREAM}:${BRANCH}. Auto-merges only if cleanly mergeable with the baked-in Vantage commits; otherwise left open for manual resolution." \
+                     | grep -oE '[0-9]+$')"
+            echo "Opened sync PR #$NUM"
+          else
+            echo "Reusing existing open sync PR #$NUM"
+          fi
+
+          # LOCKDOWN: verify this PR really is upstream anddea:dev before trusting it.
+          read -r HR HREF HSHA < <(gh pr view "$NUM" --repo "$GITHUB_REPOSITORY" \
+            --json headRepositoryOwner,headRefName,headRefOid \
+            --jq '[.headRepositoryOwner.login, .headRefName, .headRefOid] | @tsv')
+          if [ "$HR" != "$UP_OWNER" ] || [ "$HREF" != "$BRANCH" ]; then
+            echo "::error::PR #$NUM head is ${HR}:${HREF}, not ${UP_OWNER}:${BRANCH} - refusing to merge."
+            exit 1
+          fi
+          echo "Lockdown OK: PR #$NUM head is ${HR}:${HREF} @ ${HSHA}"
+
+          # Poll mergeability (GitHub computes it async).
+          STATE=""
+          for i in $(seq 1 8); do
+            STATE="$(gh pr view "$NUM" --repo "$GITHUB_REPOSITORY" --json mergeable --jq '.mergeable')"
+            [ "$STATE" != "UNKNOWN" ] && break
+            echo "mergeable=UNKNOWN, retry $i ..."; sleep 5
+          done
+          echo "mergeable=$STATE"
+
+          if [ "$STATE" = "MERGEABLE" ]; then
+            gh pr merge "$NUM" --repo "$GITHUB_REPOSITORY" --merge
+            echo "Auto-merged sync PR #$NUM (clean). build-mpp.yml will rebuild the .mpp."
+          elif [ "$STATE" = "CONFLICTING" ]; then
+            gh pr edit "$NUM" --repo "$GITHUB_REPOSITORY" --add-label needs-manual-merge 2>/dev/null || true
+            echo "::warning::Sync PR #$NUM CONFLICTS with baked-in commits - left open for manual resolution."
+          else
+            echo "::warning::PR #$NUM mergeability still $STATE after polling - leaving open."
+          fi
