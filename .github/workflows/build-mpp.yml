@@ -5,6 +5,13 @@ name: Build patches (.mpp)
 # builder consumes. No PAT/secrets needed: the MorpheApp Maven packages are public
 # and resolve with the built-in GITHUB_TOKEN. Android SDK is preinstalled on the
 # ubuntu-latest runner image.
+#
+# VERSIONING: gradle.properties is kept byte-identical to upstream anddea so the
+# nightly sync-upstream PR never conflicts on the version line. The Vantage suffix
+# is applied HERE at build time as "<upstream-version>-vantage.<VANTAGE_REV>" -
+# used for the release tag/asset name and passed to Gradle via -Pversion so the
+# built .mpp carries it too. Bump VANTAGE_REV below for a Vantage-only rebuild on
+# the same upstream version (an upstream bump already yields a fresh tag on its own).
 on:
   push:
     branches: [dev]
@@ -25,6 +32,12 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  # Vantage build revision. See the VERSIONING note above. Bump this string for a
+  # Vantage-only rebuild on the SAME upstream version; leave it when an upstream
+  # sync bumps the base version (that already produces a new tag).
+  VANTAGE_REV: "1"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,13 +51,21 @@ jobs:
           distribution: zulu
           java-version: '17'
 
+      - name: Compute Vantage version
+        run: |
+          set -euo pipefail
+          BASE="$(grep -E '^version = ' gradle.properties | sed -E 's/version = *//')"
+          VVER="${BASE}-vantage.${VANTAGE_REV}"
+          echo "VVER=$VVER" >> "$GITHUB_ENV"
+          echo "Building Vantage version $VVER (upstream base $BASE, rev $VANTAGE_REV)"
+
       - name: Build the .mpp
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x gradlew
-          ./gradlew :patches:buildAndroid --no-daemon --stacktrace
+          ./gradlew :patches:buildAndroid --no-daemon --stacktrace -Pversion="$VVER"
 
       - name: Publish .mpp release
         env:
@@ -53,7 +74,7 @@ jobs:
           set -euo pipefail
           MPP="$(ls patches/build/libs/patches-*.mpp | grep -viE 'sources|javadoc' | head -1)"
           [ -n "$MPP" ] || { echo "no .mpp produced"; exit 1; }
-          VER="$(grep -E '^version = ' gradle.properties | sed -E 's/version = *//')"
+          VER="$VVER"
           TAG="v${VER}"
           ASSET="patches-${VER}.mpp"
           cp "$MPP" "$ASSET"
