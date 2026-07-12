@@ -1310,9 +1310,6 @@ Info:
     <string name="revanced_hide_shorts_comments_panel_summary_off">Comments panel is shown.</string>
     <string name="revanced_hide_shorts_comments_panel_summary_on">Comments panel is hidden.</string>
     <string name="revanced_hide_shorts_comments_panel_title">Hide comments panel</string>
-    <string name="revanced_hide_shorts_dislike_button_summary_off">Dislike button is shown.</string>
-    <string name="revanced_hide_shorts_dislike_button_summary_on">Dislike button is hidden.</string>
-    <string name="revanced_hide_shorts_dislike_button_title">Hide Dislike button</string>
     <string name="revanced_hide_shorts_floating_button_summary_off">Floating buttons in Shorts pages are shown.</string>
     <string name="revanced_hide_shorts_floating_button_summary_on">Floating buttons in Shorts pages are hidden.</string>
     <string name="revanced_hide_shorts_floating_button_title">Hide floating buttons</string>
@@ -1646,6 +1643,12 @@ Known issue: When this setting is enabled, YouTube Doodles are not clickable."</
     <string name="revanced_language_VI">Vietnamese\n<small>Tiếng Việt</small></string>
     <string name="revanced_language_ZH">Chinese\n<small>中文</small></string>
     <string name="revanced_language_title">RVX language</string>
+    <string name="revanced_miniplayer_disable_horizontal_drag_playback_summary_off">Playback continues when the miniplayer is dragged off-screen.</string>
+    <string name="revanced_miniplayer_disable_horizontal_drag_playback_summary_on">Playback will pause when the miniplayer is dragged off-screen.</string>
+    <string name="revanced_miniplayer_disable_horizontal_drag_playback_title">Disable playback with horizontal drag</string>
+    <string name="revanced_miniplayer_disable_horizontal_reposition_summary_off">Dragging the miniplayer off-screen uses the original automatic reposition behavior.</string>
+    <string name="revanced_miniplayer_disable_horizontal_reposition_summary_on">Dragging the miniplayer off-screen will preserve its UI state.</string>
+    <string name="revanced_miniplayer_disable_horizontal_reposition_title">Prevent horizontal drag automatic reposition</string>
     <string name="revanced_miniplayer_double_tap_action_summary_off">Double-tap action and pinch to resize is disabled.</string>
     <string name="revanced_miniplayer_double_tap_action_summary_on">"Double-tap action and pinch to resize is enabled.
 
@@ -1769,9 +1772,9 @@ Tap and hold to reset playback speed to 1.0x. Tap and hold again to reset back t
     <string name="revanced_overlay_button_whitelist_summary">"Tap to open whitelist dialog.
 Tap and hold to open whitelist setting dialog.</string>
     <string name="revanced_overlay_button_whitelist_title">Show whitelist button</string>
-    <string name="revanced_overlay_buttons_max_landscape_summary">Maximum number of overlay buttons to show in landscape mode (excluding Fullscreen button). Enter 0 to hide all.</string>
+    <string name="revanced_overlay_buttons_max_landscape_summary">Maximum number of overlay buttons to show in landscape mode (excluding Fullscreen button). Enter 0 to hide all.\n\nSwipe horizontally to reveal any buttons exceeding this limit.</string>
     <string name="revanced_overlay_buttons_max_landscape_title">Max buttons in landscape</string>
-    <string name="revanced_overlay_buttons_max_portrait_summary">Maximum number of overlay buttons to show in portrait mode (excluding Fullscreen button). Enter 0 to hide all.</string>
+    <string name="revanced_overlay_buttons_max_portrait_summary">Maximum number of overlay buttons to show in portrait mode (excluding Fullscreen button). Enter 0 to hide all.\n\nSwipe horizontally to reveal any buttons exceeding this limit.</string>
     <string name="revanced_overlay_buttons_max_portrait_title">Max buttons in portrait</string>
     <string name="revanced_override_play_next_in_queue_summary_off">Play next in queue uses YouTube's native queue.</string>
     <string name="revanced_override_play_next_in_queue_summary_on">Play next in queue opens the RVX queue manager.</string>
@@ -2068,13 +2071,6 @@ Click to see how to issue an API key."</string>
     <string name="revanced_ryd_failure_connection_status_code">Dislikes unavailable (status %d).</string>
     <string name="revanced_ryd_failure_connection_timeout">Dislikes temporarily unavailable (API timed out).</string>
     <string name="revanced_ryd_failure_generic">Dislikes unavailable (%s).</string>
-    <string name="revanced_ryd_failure_ryd_enabled_while_playing_video_then_user_voted">Reload video to vote using Return YouTube Dislike</string>
-    <string name="revanced_ryd_shorts_summary_off">Dislikes are hidden on Shorts.</string>
-    <string name="revanced_ryd_shorts_summary_on">Dislikes are shown on Shorts.</string>
-    <string name="revanced_ryd_shorts_summary_on_disclaimer">"Dislikes are shown on Shorts.
-
-Limitation: Dislikes may not appear if the user is not logged in or in incognito mode."</string>
-    <string name="revanced_ryd_shorts_title">Show dislikes on Shorts</string>
     <string name="revanced_ryd_toast_on_connection_error_summary_off">Toast is not shown if Return YouTube Dislike is unavailable.</string>
     <string name="revanced_ryd_toast_on_connection_error_summary_on">Toast is shown if Return YouTube Dislike is unavailable.</string>
     <string name="revanced_ryd_toast_on_connection_error_title">Show a toast if API is unavailable</string>

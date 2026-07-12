@@ -1,3 +1,52 @@
+/*
+ * Copyright (C) 2026 anddea
+ *
+ * This file is part of the revanced-patches project:
+ * https://github.com/anddea/revanced-patches
+ *
+ * Original author(s):
+ * - anddea (https://github.com/anddea)
+ * - inotia00 (https://github.com/inotia00)
+ *
+ * Licensed under the GNU General Public License v3.0.
+ *
+ * ------------------------------------------------------------------------
+ * GPLv3 Section 7 – Additional Terms & Attribution Requirements
+ * ------------------------------------------------------------------------
+ *
+ * This file contains substantial original work by the author(s) listed above.
+ *
+ * In accordance with Section 7 of the GNU General Public License v3.0,
+ * the following additional terms apply to this file:
+ *
+ * 1. Source Credit Preservation (Section 7(b)): This specific copyright notice
+ *    and the list of original authors above must be preserved in any copy
+ *    or derivative work. You may add your own copyright notice below it,
+ *    but you may not remove the original one.
+ *
+ * 2. Origin & Modification Marking (Section 7(c)): Modified versions must be
+ *    clearly marked as such (e.g., by adding a "Modified by" line or a new
+ *    copyright notice) and must not be misrepresented as the original work.
+ *
+ * 3. Version Control Attribution (Section 7(b)): Any ports or substantial
+ *    modifications must retain historical authorship credit in version control
+ *    systems (e.g., Git), listing original author(s) appropriately and
+ *    modifiers as committers or co-authors.
+ *
+ * 4. User Interface Attribution (Section 7(b)): Any works containing or
+ *    derived from this material must maintain a visible credit or
+ *    acknowledgment to the original author(s) within the application's
+ *    user interface (e.g., in an "About" or "Credits" section).
+ */
+
+/*
+ * Portions of this file are ported from Morphe:
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/morphe-patches
+ *
+ * See the included NOTICE file for GPLv3 §7(b) and §7(c) terms that apply to this code.
+ */
+
 package app.morphe.patches.music.player.components
 
 import app.morphe.patcher.Fingerprint
@@ -32,6 +81,7 @@ import app.morphe.patches.music.utils.playservice.is_8_03_or_greater
 import app.morphe.patches.music.utils.playservice.is_8_05_or_greater
 import app.morphe.patches.music.utils.playservice.is_8_12_or_greater
 import app.morphe.patches.music.utils.playservice.is_8_51_or_greater
+import app.morphe.patches.music.utils.playservice.is_9_00_or_greater
 import app.morphe.patches.music.utils.playservice.is_9_15_or_greater
 import app.morphe.patches.music.utils.playservice.versionCheckPatch
 import app.morphe.patches.music.utils.resourceid.colorGrey
@@ -45,7 +95,7 @@ import app.morphe.patches.music.utils.resourceid.topEnd
 import app.morphe.patches.music.utils.resourceid.topStart
 import app.morphe.patches.music.utils.settings.CategoryType
 import app.morphe.patches.music.utils.settings.ResourceUtils.updatePatchStatus
-import app.morphe.patches.music.utils.settings.addPreferenceWithIntent
+import app.morphe.patches.music.utils.settings.addTextPreference
 import app.morphe.patches.music.utils.settings.addSwitchPreference
 import app.morphe.patches.music.utils.settings.settingsPatch
 import app.morphe.patches.music.utils.videotype.videoTypeHookPatch
@@ -584,12 +634,12 @@ val playerComponentsPatch = bytecodePatch(
                 "revanced_change_player_background_color",
                 "false"
             )
-            addPreferenceWithIntent(
+            addTextPreference(
                 CategoryType.PLAYER,
                 "revanced_custom_player_background_color_primary",
                 "revanced_change_player_background_color"
             )
-            addPreferenceWithIntent(
+            addTextPreference(
                 CategoryType.PLAYER,
                 "revanced_custom_player_background_color_secondary",
                 "revanced_change_player_background_color"
@@ -1002,6 +1052,26 @@ val playerComponentsPatch = bytecodePatch(
                         )
                         removeInstruction(getFieldIndex)
                     } ?: throw PatchException("Could not find targetMethod")
+                }
+
+                // endregion
+
+                // region Disable player page motion event
+
+                // YT Music 9.00+ consumes the downward motion before the watch-page dismiss
+                // handler.
+                if (is_9_00_or_greater) {
+                    PlayerPageBehaviorFingerprint.method.addInstructionsWithLabels(
+                        0,
+                        """
+                            invoke-static {}, $PLAYER_CLASS_DESCRIPTOR->enableSwipeToDismissMiniPlayer()Z
+                            move-result v0
+                            if-eqz v0, :ignore
+                            return-void
+                            :ignore
+                            nop
+                        """
+                    )
                 }
 
                 // endregion

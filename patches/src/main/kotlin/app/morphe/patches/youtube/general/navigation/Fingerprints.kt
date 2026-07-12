@@ -191,12 +191,34 @@ internal object SetEnumMapSecondaryFingerprint : Fingerprint(
     }
 )
 
-internal const val TRANSLUCENT_NAVIGATION_BAR_FEATURE_FLAG = 45630927L
+internal object TranslucentNavigationStatusBarFeatureFlagFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    filters = listOf(
+        literal(45400535L) // Translucent status bar feature flag.
+    )
+)
 
-internal object TranslucentNavigationBarFingerprint : Fingerprint(
-    custom = { method, _ ->
-        method.containsLiteralInstruction(TRANSLUCENT_NAVIGATION_BAR_FEATURE_FLAG)
-    }
+/**
+ * YouTube nav buttons.
+ */
+internal object TranslucentNavigationButtonsFeatureFlagFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    filters = listOf(
+        literal(45630927L) // Translucent navigation bar buttons feature flag.
+    )
+)
+
+/**
+ * Device on screen back/home/recent buttons.
+ */
+internal object TranslucentNavigationButtonsSystemFeatureFlagFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    filters = listOf(
+        literal(45632194L) // Translucent system buttons feature flag.
+    )
 )
 
 internal object AutoHideNavigationBarFingerprint : Fingerprint(
