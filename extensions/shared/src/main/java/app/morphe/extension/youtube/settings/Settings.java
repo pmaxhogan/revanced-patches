@@ -19,6 +19,13 @@ import static app.morphe.extension.youtube.sponsorblock.objects.CategoryBehaviou
 import static app.morphe.extension.youtube.sponsorblock.objects.CategoryBehaviour.SKIP_AUTOMATICALLY_ONCE;
 import static app.morphe.extension.youtube.utils.ExtendedUtils.IS_19_34_OR_GREATER;
 
+import android.content.Context;
+
+import androidx.annotation.Nullable;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -67,21 +74,53 @@ import app.morphe.extension.youtube.swipecontrols.SwipeControlsConfigurationProv
 @SuppressWarnings("unused")
 public class Settings extends SharedYouTubeSettings {
     public static final EnumSetting<ClientType> SPOOF_VIDEO_STREAMS_CLIENT_TYPE =
-            new EnumSetting<>("morphe_spoof_video_streams_client_type", ClientType.ANDROID_VR_1_73, true, parent(SPOOF_VIDEO_STREAMS));
+            new EnumSetting<>("morphe_spoof_video_streams_client_type", ClientType.VISIONOS_1_02, true, parent(SPOOF_VIDEO_STREAMS));
     public static final BooleanSetting FORCE_AVC_CODEC = new BooleanSetting(
             "morphe_force_avc_codec",
             FALSE,
             true,
             "morphe_force_avc_codec_user_dialog_message"
     );
+    public static final BooleanSetting VIDEO_QUALITY_PRIORITIZE = new BooleanSetting("morphe_video_quality_prioritize", TRUE, true, "morphe_video_quality_prioritize_dialog");
 
     // Captions.
-    // Use the legacy switch as the initial default when upgrading from a pre-20.26 installation.
+    // Legacy switch values are migrated once in the static initialization block below.
     public static final EnumSetting<AutoCaptionsStyle> AUTO_CAPTIONS_STYLE = new EnumSetting<>(
             "revanced_auto_captions_style",
-            BaseSettings.DISABLE_AUTO_CAPTIONS.get() ? BOTH_DISABLED : BOTH_ENABLED,
+            BOTH_ENABLED,
             true
     );
+    /**
+     * Ensures the legacy disable-auto-captions switch is migrated only once without changing the
+     * permanent default or overriding an explicitly selected auto-captions style.
+     */
+    private static final BooleanSetting AUTO_CAPTIONS_STYLE_MIGRATED = new BooleanSetting(
+            "revanced_auto_captions_style_migrated",
+            FALSE,
+            false,
+            false
+    );
+    /**
+     * Converts legacy-only imports without overriding the new setting when both keys are present.
+     */
+    private static final Setting.ImportExportCallback AUTO_CAPTIONS_IMPORT_MIGRATION_CALLBACK =
+            new Setting.ImportExportCallback() {
+                @Override
+                public void settingsImporting(JSONObject json) throws JSONException {
+                    if (!json.has("auto_captions_style")
+                            && json.optBoolean("disable_auto_captions", false)) {
+                        json.put("auto_captions_style", "both_disabled");
+                    }
+                }
+
+                @Override
+                public void settingsImported(@Nullable Context context) {
+                }
+
+                @Override
+                public void settingsExported(@Nullable Context context) {
+                }
+            };
     public static final BooleanSetting SPOOF_VIDEO_STREAMS_AV1 = new BooleanSetting(
             "morphe_spoof_video_streams_av1",
             FALSE,
@@ -514,6 +553,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting HIDE_SEEKBAR = new BooleanSetting("revanced_hide_seekbar", FALSE, true);
     public static final BooleanSetting HIDE_SEEKBAR_THUMBNAIL = new BooleanSetting("revanced_hide_seekbar_thumbnail", FALSE, true);
     public static final BooleanSetting HIDE_TIME_STAMP = new BooleanSetting("revanced_hide_time_stamp", FALSE, true);
+    public static final BooleanSetting THUMBNAIL_PREVIEW = new BooleanSetting("morphe_seekbar_thumbnail_preview", TRUE);
     public static final BooleanSetting RESTORE_OLD_SEEKBAR_THUMBNAILS = new BooleanSetting("revanced_restore_old_seekbar_thumbnails",
             PatchStatus.OldSeekbarThumbnailsDefaultBoolean(), true);
     public static final BooleanSetting ENABLE_SEEKBAR_THUMBNAILS_HIGH_QUALITY = new BooleanSetting("revanced_enable_seekbar_thumbnails_high_quality", FALSE, true,
@@ -846,8 +886,9 @@ public class Settings extends SharedYouTubeSettings {
             SPOOF_APP_VERSION_TARGET.resetToDefault();
         }
 
-        // VR 1.74 is not selectable in the settings, and it's selected by spoof stream patch if needed.
-        if (SPOOF_VIDEO_STREAMS_CLIENT_TYPE.get() == ClientType.ANDROID_VR_1_74) {
+        // Android VR 1.74 and visionOS 1.03 are not selectable in the settings and are selected by spoof stream patch if needed.
+        ClientType client = SPOOF_VIDEO_STREAMS_CLIENT_TYPE.get();
+        if (client == ClientType.ANDROID_VR_1_74 || client == ClientType.VISIONOS_1_03) {
             SPOOF_VIDEO_STREAMS_CLIENT_TYPE.resetToDefault();
         }
 
@@ -891,6 +932,15 @@ public class Settings extends SharedYouTubeSettings {
             }
         }
 
+        // Migrate the pre-20.26 switch once, while preserving an explicitly selected style.
+        if (!AUTO_CAPTIONS_STYLE_MIGRATED.get()) {
+            if (!Setting.preferences.preferences.contains(AUTO_CAPTIONS_STYLE.key)
+                    && BaseSettings.DISABLE_AUTO_CAPTIONS.get()) {
+                AUTO_CAPTIONS_STYLE.save(BOTH_DISABLED);
+            }
+            AUTO_CAPTIONS_STYLE_MIGRATED.save(TRUE);
+        }
+
         // Migrate old open Shorts in regular player to new Shorts player type.
         final String oldOpenShortsInRegularPlayerKey = "revanced_open_shorts_in_regular_player";
         if (ytPrefs.preferences.contains(oldOpenShortsInRegularPlayerKey)) {
@@ -918,6 +968,7 @@ public class Settings extends SharedYouTubeSettings {
 
         // region SB import/export callbacks
 
+        Setting.addImportExportCallback(AUTO_CAPTIONS_IMPORT_MIGRATION_CALLBACK);
         Setting.addImportExportCallback(SponsorBlockSettings.SB_IMPORT_EXPORT_CALLBACK);
 
         // endregion
