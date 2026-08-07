@@ -15,13 +15,13 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.Locale;
 
-import app.morphe.extension.shared.Logger;
 import app.morphe.extension.shared.requests.Requester;
 import app.morphe.extension.shared.requests.Route;
 import app.morphe.extension.shared.settings.AppLanguage;
 import app.morphe.extension.shared.spoof.ClientType;
 import app.morphe.extension.shared.spoof.SpoofVideoStreamsPatch;
 import app.morphe.extension.shared.spoof.js.JavaScriptManager;
+import app.morphe.extension.shared.utils.Logger;
 
 public final class PlayerRoutes {
 
@@ -35,14 +35,14 @@ public final class PlayerRoutes {
     public static final Route.CompiledRoute GET_PLAYER_STREAMING_DATA = new Route(
             Route.Method.POST,
             "player" +
-                    "?fields=playabilityStatus,streamingData,playerConfig.mediaCommonConfig" +
+                    "?fields=responseContext.visitorData,playabilityStatus,streamingData,playerConfig.mediaCommonConfig" +
                     "&alt=proto"
     ).compile();
 
     public static final Route.CompiledRoute GET_REEL_STREAMING_DATA = new Route(
             Route.Method.POST,
             "reel/reel_item_watch" +
-                    "?fields=playerResponse.playabilityStatus,playerResponse.streamingData,playerResponse.playerConfig.mediaCommonConfig" +
+                    "?fields=responseContext.visitorData,playerResponse.playabilityStatus,playerResponse.streamingData,playerResponse.playerConfig.mediaCommonConfig" +
                     "&alt=proto"
     ).compile();
 
@@ -59,7 +59,7 @@ public final class PlayerRoutes {
     private PlayerRoutes() {
     }
 
-    static String createInnertubeBody(ClientType clientType, String videoId) {
+    static String createInnertubeBody(ClientType clientType, String videoId, String visitorId) {
         JSONObject innerTubeBody = new JSONObject();
 
         try {
@@ -74,6 +74,9 @@ public final class PlayerRoutes {
             JSONObject client = new JSONObject();
             client.put("clientName", clientType.clientName);
             client.put("clientVersion", clientType.clientVersion);
+            if (visitorId != null && !visitorId.isEmpty()) {
+                client.put("visitorData", visitorId);
+            }
             if (clientType.deviceModel != null) {
                 client.put("deviceMake", clientType.deviceMake);
                 client.put("deviceModel", clientType.deviceModel);

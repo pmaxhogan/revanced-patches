@@ -45,8 +45,8 @@ internal enum class PatchList(
         "Disable Cairo splash animation",
         "Adds an option to disable Cairo splash animation."
     ),
-    DISABLE_FORCED_AUTO_AUDIO_TRACKS(
-        "Disable forced auto audio tracks",
+    FORCE_ORIGINAL_AUDIO(
+        "Force original audio",
         "Adds an option to disable audio tracks from being automatically enabled."
     ),
     DISABLE_FORCED_AUTO_CAPTIONS(
@@ -156,6 +156,10 @@ internal enum class PatchList(
     SPOOF_APP_VERSION_FOR_LYRICS(
         "Spoof app version for lyrics",
         "Adds options to spoof the YouTube Music client version. This can be used to restore old lyrics UI."
+    ),
+    THIRD_PARTY_LYRICS(
+        "Third-party lyrics",
+        "Adds an option to show synced lyrics from LRCLIB or KuGou in the lyrics panel."
     ),
     TRANSLATIONS_FOR_YOUTUBE_MUSIC(
         "Translations for YouTube Music",

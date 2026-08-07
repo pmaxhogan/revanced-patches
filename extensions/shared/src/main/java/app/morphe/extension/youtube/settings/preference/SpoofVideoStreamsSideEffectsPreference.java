@@ -8,7 +8,7 @@
 
 package app.morphe.extension.youtube.settings.preference;
 
-import static app.morphe.extension.shared.StringRef.str;
+import static app.morphe.extension.shared.utils.StringRef.str;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -18,12 +18,12 @@ import android.util.AttributeSet;
 
 import androidx.annotation.Nullable;
 
-import app.morphe.extension.shared.Logger;
-import app.morphe.extension.shared.Utils;
 import app.morphe.extension.shared.settings.Setting;
 import app.morphe.extension.shared.settings.SharedYouTubeSettings;
 import app.morphe.extension.shared.settings.preference.BulletPointPreference;
 import app.morphe.extension.shared.spoof.ClientType;
+import app.morphe.extension.shared.utils.Logger;
+import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.settings.Settings;
 
 @SuppressWarnings({"deprecation", "unused"})
@@ -96,10 +96,10 @@ public class SpoofVideoStreamsSideEffectsPreference extends Preference {
                             + '\n' + str("morphe_spoof_video_streams_about_no_stable_volume")
                             + '\n' + str("morphe_spoof_video_streams_about_no_av1")
                             + '\n' + str("morphe_spoof_video_streams_about_no_force_original_audio");
-            // Android VR 1.74 and visonOS 1.03 are not exposed in the UI and should never be reached here.
-            case ANDROID_VR_1_73, ANDROID_VR_1_74, VISIONOS_1_02, VISIONOS_1_03 ->
+            // Android XR and visonOS 1.03 are not exposed in the UI and should never be reached here.
+            case ANDROID_VR, ANDROID_XR, VISIONOS_1_02, VISIONOS_1_03 ->
                     summary = str("morphe_spoof_video_streams_about_no_stable_volume");
-            case TV ->
+            case TV_SABR, TV_SIMPLY ->
                     summary = str("morphe_spoof_video_streams_about_js");
             default -> Logger.printException(() -> "Unknown client: " + clientType);
         }

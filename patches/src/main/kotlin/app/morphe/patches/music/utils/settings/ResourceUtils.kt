@@ -116,7 +116,6 @@ internal object ResourceUtils {
         )
     }
 
-
     private fun setPreferenceCategory(newCategory: String) {
         CategoryType.entries.forEach { preference ->
             if (newCategory == preference.value)
@@ -379,6 +378,35 @@ internal object ResourceUtils {
                                 "android:targetClass",
                                 ACTIVITY_HOOK_TARGET_CLASS
                             )
+                        }
+                    }
+                }
+        }
+    }
+
+    fun addNonInteractivePreference(
+        category: String,
+        key: String,
+        dependencyKey: String = "",
+        setSummary: Boolean = true,
+        titleKey: String = "${key}_title",
+        summaryKey: String = "${key}_summary",
+    ) {
+        context.document(SETTINGS_HEADER_PATH).use { document ->
+            val tags = document.getElementsByTagName(PREFERENCE_SCREEN_TAG_NAME)
+            List(tags.length) { tags.item(it) as Element }
+                .filter {
+                    it.getAttribute("android:key").contains("revanced_preference_screen_$category")
+                }
+                .forEach {
+                    it.adoptChild("Preference") {
+                        setAttribute("android:title", "@string/$titleKey")
+                        if (setSummary) {
+                            setAttribute("android:summary", "@string/$summaryKey")
+                        }
+                        setAttribute("android:key", key)
+                        if (dependencyKey.isNotEmpty()) {
+                            setAttribute("android:dependency", dependencyKey)
                         }
                     }
                 }

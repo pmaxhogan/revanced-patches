@@ -12,12 +12,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import app.morphe.extension.shared.Logger;
 import app.morphe.extension.shared.requests.Route;
 import app.morphe.extension.shared.settings.AppLanguage;
 import app.morphe.extension.shared.settings.Setting;
 import app.morphe.extension.shared.settings.SharedYouTubeSettings;
 import app.morphe.extension.shared.spoof.requests.StreamOrDetailsDataRequest;
+import app.morphe.extension.shared.spoof.requests.VisitorIdRequester;
+import app.morphe.extension.shared.utils.Logger;
+import app.morphe.extension.shared.utils.Utils;
 
 @SuppressWarnings("unused")
 public class SpoofVideoStreamsPatch {
@@ -71,7 +73,13 @@ public class SpoofVideoStreamsPatch {
 
     public static void setClientsToUse(List<ClientType> availableClients, ClientType client) {
         preferredClient = Objects.requireNonNull(client);
-        StreamOrDetailsDataRequest.setClientOrderToUse(availableClients, client);
+
+        if (isPatchIncluded() && SPOOF_VIDEO_STREAMS) {
+            StreamOrDetailsDataRequest.setClientOrderToUse(availableClients, client);
+
+            // Prefetch visitorId for default client.
+            Utils.runOnBackgroundThread(() -> VisitorIdRequester.getVisitorId(client));
+        }
     }
 
     public static ClientType getPreferredClient() {

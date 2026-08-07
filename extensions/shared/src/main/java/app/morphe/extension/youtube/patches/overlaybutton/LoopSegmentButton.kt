@@ -43,6 +43,7 @@ package app.morphe.extension.youtube.patches.overlaybutton
 import android.content.Intent
 import android.net.Uri
 import android.view.View
+import androidx.core.net.toUri
 import app.morphe.extension.shared.utils.Logger
 import app.morphe.extension.shared.utils.StringRef.str
 import app.morphe.extension.shared.utils.Utils
@@ -54,7 +55,6 @@ import app.morphe.extension.youtube.shared.VideoInformation
 import java.util.Locale
 import java.util.regex.Pattern
 import kotlin.math.max
-import androidx.core.net.toUri
 
 @Suppress("unused")
 object LoopSegmentButton {
@@ -352,7 +352,13 @@ object LoopSegmentButton {
         return true
     }
 
-    private fun isSegmentActive() = segmentStartMs in 0..<segmentEndMs
+    /**
+     * Injection point or helper.
+     * @return true if a loop segment is active or pending from a loop link intent.
+     */
+    @JvmStatic
+    fun isSegmentActive(): Boolean = pendingSegment != null || (segmentStartMs in 0..<segmentEndMs)
+
 
     private fun seekToSegmentStart(): Boolean {
         if (segmentStartMs < 0) return false
