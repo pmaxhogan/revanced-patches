@@ -4,6 +4,17 @@
     <!-- PREFERENCE_SCREEN: GENERAL
     <PreferenceScreen android:title="@string/revanced_preference_screen_general_title" android:key="revanced_preference_screen_general">PREFERENCE_SCREEN: GENERAL -->
 
+        <!-- SETTINGS: CUSTOM_BRANDING
+        <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/morphe_custom_branding_name_title" android:key="morphe_custom_branding_name" android:summary="@string/morphe_custom_branding_name_summary" android:entries="@array/morphe_custom_branding_name_entries" android:entryValues="@array/morphe_custom_branding_name_entry_values" />
+        <app.morphe.extension.shared.settings.preference.IconListPreference android:title="@string/morphe_custom_branding_icon_title" android:key="morphe_custom_branding_icon" android:summary="@string/morphe_custom_branding_icon_summary" android:entries="@array/morphe_custom_branding_icon_entries" android:entryValues="@array/morphe_custom_branding_icon_entry_values" />
+        <SwitchPreference android:title="@string/morphe_custom_branding_apply_to_rvx_settings_title" android:key="morphe_custom_branding_apply_to_rvx_settings" android:summary="@string/morphe_custom_branding_apply_to_rvx_settings_summary" />SETTINGS: CUSTOM_BRANDING -->
+
+        <!-- SETTINGS: RUNTIME_THEME
+        <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/morphe_dark_theme_title" android:key="morphe_dark_theme" android:entries="@array/morphe_dark_theme_entries" android:entryValues="@array/morphe_dark_theme_entry_values" />
+        <app.morphe.extension.shared.settings.preference.ColorPickerPreference android:title="@string/morphe_dark_theme_custom_color_title" android:key="morphe_dark_theme_custom_color" android:summary="@string/morphe_dark_theme_custom_color_summary" />
+        <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/morphe_light_theme_title" android:key="morphe_light_theme" android:entries="@array/morphe_light_theme_entries" android:entryValues="@array/morphe_light_theme_entry_values" />
+        <app.morphe.extension.shared.settings.preference.ColorPickerPreference android:title="@string/morphe_light_theme_custom_color_title" android:key="morphe_light_theme_custom_color" android:summary="@string/morphe_dark_theme_custom_color_summary" />SETTINGS: RUNTIME_THEME -->
+
         <!-- SETTINGS: HIDE_LAYOUT_COMPONENTS
         <PreferenceScreen android:title="@string/revanced_preference_screen_account_menu_title" android:key="revanced_preference_screen_account_menu" android:summary="@string/revanced_preference_screen_account_menu_summary">
             <SwitchPreference android:title="@string/revanced_hide_account_menu_title" android:key="revanced_hide_account_menu" android:summary="@string/revanced_hide_account_menu_summary" />
@@ -220,6 +231,9 @@
 
         <!-- SETTINGS: CHANGE_FORM_FACTOR
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_change_form_factor_entries" android:title="@string/revanced_change_form_factor_title" android:key="revanced_change_form_factor" android:entryValues="@array/revanced_change_form_factor_entry_values" />SETTINGS: CHANGE_FORM_FACTOR -->
+
+        <!-- SETTINGS: TABLET_LAYOUT_IN_PLAYER
+        <SwitchPreference android:title="@string/morphe_tablet_layout_in_player_title" android:key="morphe_tablet_layout_in_player" android:summary="@string/morphe_tablet_layout_in_player_summary" />SETTINGS: TABLET_LAYOUT_IN_PLAYER -->
 
         <!-- SETTINGS: CUSTOM_DPI
         <app.morphe.extension.shared.settings.preference.SliderPreference android:title="@string/revanced_custom_dpi_title" android:key="morphe_custom_dpi" android:summary="@string/revanced_custom_dpi_summary" android:numeric="integer" />SETTINGS: CUSTOM_DPI -->
@@ -921,7 +935,6 @@
         <SwitchPreference android:title="@string/revanced_remember_playback_speed_last_selected_toast_title" android:key="revanced_remember_video_quality_last_selected_toast" android:summaryOn="@string/revanced_remember_video_quality_last_selected_toast_summary_on" android:summaryOff="@string/revanced_remember_video_quality_last_selected_toast_summary_off" />
         <SwitchPreference android:title="@string/revanced_spoof_device_dimensions_title" android:key="revanced_spoof_device_dimensions" android:summary="@string/revanced_spoof_device_dimensions_summary" />
         <SwitchPreference android:title="@string/morphe_video_quality_prioritize_title" android:key="morphe_video_quality_prioritize" android:summaryOn="@string/morphe_video_quality_prioritize_summary" android:summaryOff="@string/morphe_video_quality_prioritize_summary" />
-        <SwitchPreference android:title="@string/morphe_override_initial_video_quality_title" android:key="morphe_override_initial_video_quality" android:summary="@string/morphe_override_initial_video_quality_summary" />
 
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/revanced_default_video_quality_wifi_shorts_title" android:key="revanced_default_video_quality_wifi_shorts" android:entries="@array/revanced_default_video_quality_entries" android:entryValues="@array/revanced_default_video_quality_entry_values" />
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/revanced_default_video_quality_mobile_shorts_title" android:key="revanced_default_video_quality_mobile_shorts" android:entries="@array/revanced_default_video_quality_entries" android:entryValues="@array/revanced_default_video_quality_entry_values" />
@@ -935,6 +948,10 @@
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_custom_playback_speed_menu_type_entries" android:title="@string/revanced_custom_playback_speed_menu_type_title" android:key="revanced_custom_playback_speed_menu_type" android:entryValues="@array/revanced_custom_playback_speed_menu_type_entry_values" />
         <SwitchPreference android:title="@string/revanced_remember_playback_speed_last_selected_title" android:key="revanced_remember_playback_speed_last_selected" android:summaryOn="@string/revanced_remember_playback_speed_last_selected_summary_on" android:summaryOff="@string/revanced_remember_playback_speed_last_selected_summary_off" />
         <SwitchPreference android:title="@string/revanced_remember_playback_speed_last_selected_toast_title" android:key="revanced_remember_playback_speed_last_selected_toast" android:summaryOn="@string/revanced_remember_playback_speed_last_selected_toast_summary_on" android:summaryOff="@string/revanced_remember_playback_speed_last_selected_toast_summary_off" />
+
+        <app.morphe.extension.youtube.settings.preference.CustomVideoSpeedListPreference android:title="@string/revanced_default_playback_audio_pitch_title" android:key="revanced_default_playback_audio_pitch" />
+        <SwitchPreference android:title="@string/revanced_enable_playback_audio_pitch_controls_title" android:key="revanced_enable_playback_audio_pitch_controls" android:summaryOn="@string/revanced_enable_playback_audio_pitch_controls_summary_on" android:summaryOff="@string/revanced_enable_playback_audio_pitch_controls_summary_off" />
+        <SwitchPreference android:title="@string/revanced_playback_audio_time_stretching_title" android:key="revanced_playback_audio_time_stretching" android:summary="@string/revanced_playback_audio_time_stretching_summary" />
 
         <app.morphe.extension.youtube.settings.preference.CustomVideoSpeedListPreference android:title="@string/revanced_default_playback_speed_shorts_title" android:key="revanced_default_playback_speed_shorts" />
         <SwitchPreference android:title="@string/revanced_remember_playback_speed_shorts_last_selected_title" android:key="revanced_remember_playback_speed_shorts_last_selected" android:summaryOn="@string/revanced_remember_playback_speed_shorts_last_selected_summary_on" android:summaryOff="@string/revanced_remember_playback_speed_shorts_last_selected_summary_off" />
@@ -1066,6 +1083,8 @@
         <SwitchPreference android:title="@string/morphe_sanitize_sharing_links_title" android:key="morphe_sanitize_sharing_links" android:summaryOn="@string/morphe_sanitize_sharing_links_summary_on" android:summaryOff="@string/morphe_sanitize_sharing_links_summary_off" />
         <SwitchPreference android:title="@string/morphe_replace_links_with_shortener_title" android:key="morphe_replace_links_with_shortener" android:summary="@string/morphe_replace_links_with_shortener_summary" />SETTINGS: SANITIZE_SHARING_LINKS -->
 
+        <SwitchPreference android:title="@string/revanced_back_button_always_exits_feed_title" android:key="revanced_back_button_always_exits_feed" android:summaryOn="@string/revanced_back_button_always_exits_feed_summary_on" android:summaryOff="@string/revanced_back_button_always_exits_feed_summary_off" />
+
         <app.morphe.extension.youtube.settings.preference.OpenDefaultAppSettingsPreference android:title="@string/revanced_default_app_settings_title" android:key="revanced_default_app_settings" android:summary="@string/revanced_default_app_settings_summary" />
 
         <!-- PREFERENCE: GMS_CORE_SETTINGS
@@ -1182,9 +1201,8 @@
             </PreferenceCategory>
 
             <PreferenceCategory android:title="@string/revanced_preference_category_others" android:layout="@layout/revanced_settings_preferences_category">
-                <Preference android:title="Custom branding name" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
+                <Preference android:title="Custom branding" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
                 <Preference android:title="Custom double tap length" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
-                <Preference android:title="Custom header" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
                 <Preference android:title="Custom Shorts action buttons" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
                 <Preference android:title="GmsCore support" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
                 <Preference android:title="Hide accessibility controls dialog" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
