@@ -71,9 +71,18 @@ jobs:
 
           # Reuse an existing open sync PR (a prior conflicting one) instead of
           # spamming duplicates. A sync PR is identified by head anddea:dev -> dev.
+          # NOTE: gh's --head filter matches the head BRANCH NAME only - it does
+          # not understand the "owner:branch" cross-repo form (that is a REST API
+          # thing), so --head "anddea:dev" silently matches nothing and we would
+          # fall through to `gh pr create`, which then fails with "already exists"
+          # and kills the job under set -e. Filter on base and select the head
+          # repo owner in jq instead. Selecting on BOTH owner and ref matters:
+          # matching the ref alone would let a third party's `theirfork:dev` PR
+          # be picked up here and then trip the lockdown below.
           NUM="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
-                   --base "$BRANCH" --head "${UP_OWNER}:${BRANCH}" \
-                   --json number --jq '.[0].number // empty' || true)"
+                   --base "$BRANCH" \
+                   --json number,headRefName,headRepositoryOwner \
+                   --jq "[.[] | select(.headRepositoryOwner.login == \"${UP_OWNER}\" and .headRefName == \"${BRANCH}\")][0].number // empty" || true)"
           if [ -z "$NUM" ]; then
             NUM="$(gh pr create --repo "$GITHUB_REPOSITORY" \
                      --base "$BRANCH" --head "${UP_OWNER}:${BRANCH}" \
