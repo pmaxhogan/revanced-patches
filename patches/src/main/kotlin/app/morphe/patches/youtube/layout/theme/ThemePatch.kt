@@ -38,39 +38,112 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
+/*
+ * Portions of this file are ported from Morphe:
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/morphe-patches/pull/2524
+ *
+ * Original hard forked code:
+ * https://github.com/ReVanced/revanced-patches/commit/724e6d61b2ecd868c1a9a37d465a688e83a74799
+ *
+ * See the included NOTICE file for GPLv3 Section 7 terms that apply to Morphe contributions.
+ */
+
 package app.morphe.patches.youtube.layout.theme
 
 import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
+import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.PatchException
+import app.morphe.patcher.patch.ResourcePatchContext
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.colorOption
 import app.morphe.patcher.patch.resourcePatch
+import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.patches.shared.extension.Constants.EXTENSION_UTILS_CLASS_DESCRIPTOR
+import app.morphe.patches.shared.mainactivity.injectOnCreateMethodCall
+import app.morphe.patches.shared.mapping.resourceMappingPatch
+import app.morphe.patches.youtube.general.navigation.PivotBarBuilderFingerprint
 import app.morphe.patches.youtube.general.splashanimation.splashScreenAnimationBytecodePatch
 import app.morphe.patches.youtube.utils.compatibility.Constants.COMPATIBILITY_YOUTUBE
 import app.morphe.patches.youtube.utils.extension.Constants.PATCHES_PATH
+import app.morphe.patches.youtube.utils.extension.Constants.UTILS_PATH
 import app.morphe.patches.youtube.utils.extension.hooks.applicationInitHook
 import app.morphe.patches.youtube.utils.mainactivity.mainActivityResolvePatch
-import app.morphe.patches.youtube.utils.patch.PatchList.MATERIALYOU
 import app.morphe.patches.youtube.utils.patch.PatchList.THEME
+import app.morphe.patches.youtube.utils.playservice.is_20_00_or_greater
+import app.morphe.patches.youtube.utils.playservice.versionCheckPatch
 import app.morphe.patches.youtube.utils.settings.ResourceUtils.addPreference
-import app.morphe.patches.youtube.utils.settings.ResourceUtils.updatePatchStatusTheme
 import app.morphe.patches.youtube.utils.settings.settingsPatch
-import app.morphe.patches.shared.mainactivity.injectOnCreateMethodCall
+import app.morphe.patches.youtube.utils.settings.themeSetterSystemFingerprint
+import app.morphe.util.addInstructionsAtControlFlowLabel
+import app.morphe.util.findInstructionIndicesReversedOrThrow
+import app.morphe.util.fingerprint.methodOrThrow
 import app.morphe.util.getReference
+import app.morphe.util.indexOfFirstInstructionOrThrow
+import app.morphe.util.valueOrThrow
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import org.w3c.dom.Element
 
 private const val THEME_EXTENSION_CLASS_DESCRIPTOR = "$PATCHES_PATH/theme/ThemePatch;"
 private const val THEME_APPLICATION_METHOD_DESCRIPTOR =
     "$THEME_EXTENSION_CLASS_DESCRIPTOR->setTheme(Landroid/content/Context;)V"
+private const val THEME_RESOLVED_METHOD_DESCRIPTOR =
+    "$THEME_EXTENSION_CLASS_DESCRIPTOR->onAppThemeResolved(Ljava/lang/Enum;)V"
+private const val ELEMENTS_TEXT_COLOR_METHOD_DESCRIPTOR =
+    "$UTILS_PATH/DrawableColorPatch;->getElementsTextColor(I)I"
 private const val EXTENSION_SET_CONTEXT_METHOD_DESCRIPTOR =
     "$EXTENSION_UTILS_CLASS_DESCRIPTOR->setContext(Landroid/content/Context;)V"
 private const val RUNTIME_LIGHT_THEME_COLOR = "morphe_runtime_light_theme_color"
 private const val RUNTIME_LIGHT_THEME_COLOR_OPACITY70 = "morphe_runtime_light_theme_color_opacity70"
-private const val RUNTIME_LIGHT_THEME_COLOR_ID = "0x7f060f0f"
-private const val RUNTIME_LIGHT_THEME_COLOR_OPACITY70_ID = "0x7f060f10"
+private const val PATCH_OPTION_DARK_THEME_COLOR = "morphe_patch_option_dark_theme_color"
+private const val PATCH_OPTION_LIGHT_THEME_COLOR = "morphe_patch_option_light_theme_color"
+private const val PATCH_OPTION_THEME_ENTRY = "@string/morphe_theme_entry_patch_option"
+private const val PATCH_OPTION_THEME_KEY = "patch_option"
+private const val RUNTIME_LIGHT_THEME_COLOR_ID = "0x7f06200f"
+private const val RUNTIME_LIGHT_THEME_COLOR_OPACITY70_ID = "0x7f062010"
+private const val SPLASH_THEME_DARK_PREFIX = "morphe_theme_splash_dark_"
+private const val SPLASH_THEME_LIGHT_PREFIX = "morphe_theme_splash_light_"
+private const val SPLASH_THEME_NO_ICON_SUFFIX = "_no_icon"
+private const val SPLASH_THEME_PARENT = "@style/Theme.YouTube.Home"
 private const val PRECOMPILED_THEME_MCC = 801
 private const val DEFAULT_LIGHT_THEME_COLOR = "#FFFFFFFF"
+private const val DEFAULT_CUSTOM_DARK_THEME_COLOR = "#FF000000"
+private const val NAVIGATION_CONTENT_COUNT_METHOD = "getContentCountId"
+private const val NAVIGATION_CONTENT_DOT_METHOD = "getContentDotId"
+
+/** Neutral colors shared by player scrims and the player-status ambient layer. */
+private val stockPlayerColorNames = setOf(
+    "yt_black_pure",
+    "yt_black_pure_opacity80",
+    "yt_black_pure_opacity60",
+    "yt_white1_opacity70",
+)
+
+private fun MutableMethod.addNewContentIndicatorHook(checkCastIndex: Int) {
+    val stubRegister = getInstruction<OneRegisterInstruction>(checkCastIndex).registerA
+    addInstruction(
+        checkCastIndex + 1,
+        "invoke-static { v$stubRegister }, $THEME_EXTENSION_CLASS_DESCRIPTOR" +
+                "->onNewContentIndicator(Landroid/view/ViewStub;)V",
+    )
+}
+
+/** Applies the runtime theme to an Elements foreground color before the renderer consumes it. */
+private fun MutableMethod.addElementsForegroundColorHook(colorConsumerIndex: Int) {
+    val colorRegister =
+        getInstruction<FiveRegisterInstruction>(colorConsumerIndex).registerD
+    addInstructions(
+        colorConsumerIndex,
+        """
+            invoke-static { v$colorRegister }, $ELEMENTS_TEXT_COLOR_METHOD_DESCRIPTOR
+            move-result v$colorRegister
+            """,
+    )
+}
 
 private val stockDarkThemeColors = linkedMapOf(
     "yt_black0" to "#FF282828",
@@ -94,12 +167,13 @@ private val runtimeDarkThemeResources = stockDarkThemeColors.keys.associateWith 
 
 private val runtimeThemeResourceIds =
     runtimeDarkThemeResources.values.mapIndexed { index, name ->
-        name to "0x7f06${(0xf00 + index).toString(16).padStart(4, '0')}"
+        name to "0x7f06${(0x2000 + index).toString(16).padStart(4, '0')}"
     }.toMap() + mapOf(
         RUNTIME_LIGHT_THEME_COLOR to RUNTIME_LIGHT_THEME_COLOR_ID,
         RUNTIME_LIGHT_THEME_COLOR_OPACITY70 to RUNTIME_LIGHT_THEME_COLOR_OPACITY70_ID,
     )
 
+@Suppress("SameParameterValue")
 private fun lightThemeColorWithOpacity70(color: String): String {
     val hex = color.removePrefix("#")
     return when (hex.length) {
@@ -116,6 +190,47 @@ private fun darkThemeColorWithStockAlpha(color: String, stockColor: String): Str
     if (colorHex.length !in setOf(6, 8) || stockHex.length != 8) return color
 
     return "#${stockHex.substring(0, 2)}${colorHex.takeLast(6)}"
+}
+
+/**
+ * Writes one precompiled palette variant. Foreground-disabled variants deliberately contain only
+ * the active app background palette, so the opposite palette falls back to YouTube's stock
+ * resources instead of inheriting a selected theme color.
+ */
+private fun ResourcePatchContext.writePrecompiledThemeVariant(
+    path: String,
+    darkThemeResources: Map<String, String>,
+    lightThemeResources: Iterable<String>,
+    selectedDarkColor: String?,
+    selectedLightColor: String,
+    includeDark: Boolean,
+    includeLight: Boolean,
+) {
+    get(path).apply {
+        parentFile?.mkdirs()
+        writeText("<?xml version=\"1.0\" encoding=\"utf-8\"?><resources />")
+    }
+    document(path).use { document ->
+        val resourcesNode = document.documentElement
+        if (includeDark) {
+            darkThemeResources.forEach { (stockName, stockColor) ->
+                resourcesNode.appendChild(document.createElement("color").apply {
+                    setAttribute("name", stockName)
+                    textContent = selectedDarkColor?.let {
+                        darkThemeColorWithStockAlpha(it, stockColor)
+                    } ?: stockColor
+                })
+            }
+        }
+        if (includeLight) {
+            lightThemeResources.forEach { name ->
+                resourcesNode.appendChild(document.createElement("color").apply {
+                    setAttribute("name", name)
+                    textContent = selectedLightColor
+                })
+            }
+        }
+    }
 }
 
 private val darkThemeKeys = listOf(
@@ -159,18 +274,60 @@ private val precompiledLightThemeColors = mapOf(
     "pale_yellow" to "#FFFFE9AA",
 )
 
+/** Static colors used by Android's system process when it draws the starting window. */
+private val splashDarkThemeColors = linkedMapOf(
+    "stock" to stockDarkThemeColors.getValue("yt_black3"),
+    "amoled_black" to precompiledDarkThemeColors.getValue("amoled_black"),
+    "material_you_neutral" to "@android:color/system_neutral1_900",
+    "material_you_primary" to "@android:color/system_accent1_800",
+    "material_you_secondary" to "@android:color/system_accent2_800",
+    "material_you_tertiary" to "@android:color/system_accent3_800",
+    "modern_youtube" to precompiledDarkThemeColors.getValue("modern_youtube"),
+    "classic_youtube" to precompiledDarkThemeColors.getValue("classic_youtube"),
+    "catppuccin_mocha" to precompiledDarkThemeColors.getValue("catppuccin_mocha"),
+    "dark_pink" to precompiledDarkThemeColors.getValue("dark_pink"),
+    "dark_blue" to precompiledDarkThemeColors.getValue("dark_blue"),
+    "dark_green" to precompiledDarkThemeColors.getValue("dark_green"),
+    "dark_yellow" to precompiledDarkThemeColors.getValue("dark_yellow"),
+    "dark_orange" to precompiledDarkThemeColors.getValue("dark_orange"),
+    "dark_red" to precompiledDarkThemeColors.getValue("dark_red"),
+    // A custom color is resolved by the app process, so use the stock fallback for the system splash.
+    "custom" to stockDarkThemeColors.getValue("yt_black3"),
+)
+
+private val splashLightThemeColors = linkedMapOf(
+    "white" to DEFAULT_LIGHT_THEME_COLOR,
+    "material_you_neutral" to "@android:color/system_neutral1_100",
+    "material_you_primary" to "@android:color/system_accent1_200",
+    "material_you_secondary" to "@android:color/system_accent2_200",
+    "material_you_tertiary" to "@android:color/system_accent3_200",
+    "catppuccin_latte" to precompiledLightThemeColors.getValue("catppuccin_latte"),
+    "light_pink" to precompiledLightThemeColors.getValue("light_pink"),
+    "light_blue" to precompiledLightThemeColors.getValue("light_blue"),
+    "light_green" to precompiledLightThemeColors.getValue("light_green"),
+    "light_yellow" to precompiledLightThemeColors.getValue("light_yellow"),
+    "light_orange" to precompiledLightThemeColors.getValue("light_orange"),
+    "light_red" to precompiledLightThemeColors.getValue("light_red"),
+    "pale_blue" to precompiledLightThemeColors.getValue("pale_blue"),
+    "pale_green" to precompiledLightThemeColors.getValue("pale_green"),
+    "pale_yellow" to precompiledLightThemeColors.getValue("pale_yellow"),
+    // A custom color is resolved by the app process, so use the stock fallback for the system splash.
+    "custom" to DEFAULT_LIGHT_THEME_COLOR,
+)
+
 private val runtimeThemeBytecodePatch = bytecodePatch(
     description = "runtimeThemeBytecodePatch",
 ) {
-    dependsOn(settingsPatch, mainActivityResolvePatch)
+    dependsOn(settingsPatch, mainActivityResolvePatch, versionCheckPatch)
 
     execute {
         // Keep the runtime theme hook owned by Theme so it is applied whenever this patch is selected.
         injectOnCreateMethodCall(THEME_EXTENSION_CLASS_DESCRIPTOR, "setTheme")
 
-        // Install the overlay before Android creates the first Activity. The shared extension hook
-        // initializes its Context at the beginning of Application.onCreate, so insert immediately
-        // after that call while retaining the Activity hook for Activity-specific Resources.
+        // Prepare the overlay before the first Activity. The shared extension hook initializes its
+        // Context at the beginning of Application.onCreate, so insert immediately after that
+        // call. The Activity hook then applies the selected starting-window theme before onCreate
+        // invokes the original Activity implementation.
         val applicationOnCreate = applicationInitHook.fingerprint.method
         val contextHookIndex = applicationOnCreate.implementation?.instructions
             ?.indexOfFirst {
@@ -185,6 +342,96 @@ private val runtimeThemeBytecodePatch = bytecodePatch(
             contextHookIndex + 1,
             "invoke-static { p0 }, $THEME_APPLICATION_METHOD_DESCRIPTOR"
         )
+
+        // YouTube can force an appearance that differs from Android's night configuration. Wait
+        // for its own theme resolver, then select the resource variant for that appearance so
+        // navigation and chip-bar foregrounds do not follow the device theme by mistake.
+        themeSetterSystemFingerprint.methodOrThrow().apply {
+            findInstructionIndicesReversedOrThrow(Opcode.RETURN_OBJECT).forEach { index ->
+                val register = getInstruction<OneRegisterInstruction>(index).registerA
+                addInstructionsAtControlFlowLabel(
+                    index,
+                    "invoke-static { v$register }, $THEME_RESOLVED_METHOD_DESCRIPTOR",
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Themes direct foreground colors used by Elements rows, such as the native Shorts Captions item.
+ * These colors are supplied by the server and therefore never resolve the patched yt_white3
+ * resource used by adjacent native menu rows.
+ */
+private val elementsForegroundColorBytecodePatch = bytecodePatch(
+    description = "elementsForegroundColorBytecodePatch",
+) {
+    dependsOn(versionCheckPatch)
+
+    execute {
+        if (is_20_00_or_greater) {
+            ElementsTextColorFingerprint.let { fingerprint ->
+                fingerprint.method.addElementsForegroundColorHook(
+                    fingerprint.instructionMatches.first().index,
+                )
+            }
+        }
+    }
+}
+
+/** Hooks the pivot-bar and notification-button indicators for dynamic or user-selected colors. */
+val newContentIndicatorBytecodePatch = bytecodePatch(
+    description = "newContentIndicatorBytecodePatch",
+) {
+    dependsOn(settingsPatch, resourceMappingPatch, versionCheckPatch)
+
+    execute {
+        // The pivot bar has a stub for both the dot and the count next to it.
+        PivotBarNewContentDotFingerprint.matchOrNull()?.let {
+            // Hook the count first so the earlier dot match remains valid.
+            it.method.addNewContentIndicatorHook(it.instructionMatches.last().index)
+            it.method.addNewContentIndicatorHook(it.instructionMatches[2].index)
+        } ?: PivotBarBuilderFingerprint.matchOrNull()?.method?.let { method ->
+            // NavigationBarComponentsPatch replaces these findViewById calls with extension
+            // methods before this patch runs. In that form the original fingerprint cannot match,
+            // but the returned ViewStub and its cast remain unchanged.
+            val checkCastIndices = method.implementation?.instructions
+                ?.mapIndexedNotNull { index, instruction ->
+                    val reference = instruction.getReference<MethodReference>()
+                    if (instruction.opcode == Opcode.INVOKE_STATIC &&
+                        reference?.name in setOf(
+                            NAVIGATION_CONTENT_COUNT_METHOD,
+                            NAVIGATION_CONTENT_DOT_METHOD,
+                        )
+                    ) {
+                        method.indexOfFirstInstructionOrThrow(index, Opcode.CHECK_CAST)
+                    } else {
+                        null
+                    }
+                }
+                ?.distinct()
+                ?.sortedDescending()
+                ?: emptyList()
+
+            if (checkCastIndices.size < 2) {
+                throw PatchException("Could not find both pivot bar new content indicators")
+            }
+
+            checkCastIndices.forEach(method::addNewContentIndicatorHook)
+        } ?: throw PatchException("Could not find the pivot bar new content indicators")
+
+        // The notification button of the top bar has a separate pair of indicators.
+        TopBarNewContentCountFingerprint.let {
+            it.method.apply {
+                // Hook the dot first so the count match remains valid after insertion.
+                arrayOf(
+                    it.instructionMatches.last().index,
+                    it.instructionMatches[2].index,
+                ).forEach { checkCastIndex ->
+                    addNewContentIndicatorHook(checkCastIndex)
+                }
+            }
+        }
     }
 }
 
@@ -195,14 +442,50 @@ val themePatch = resourcePatch(
 ) {
     compatibleWith(COMPATIBILITY_YOUTUBE)
 
+    val darkThemeColorOption = colorOption(
+        key = "darkThemeColor",
+        default = DEFAULT_CUSTOM_DARK_THEME_COLOR,
+        values = splashDarkThemeColors
+            .filterKeys { it != "custom" }
+            .mapKeys { (key, _) ->
+                key.split('_').joinToString(" ") { word ->
+                    word.replaceFirstChar(Char::uppercase)
+                }
+            },
+        title = "Custom dark theme color",
+        description = "Color for the in-app Patch option and its system splash theme. " +
+                "Can be a hex color (#AARRGGBB) or a color resource reference.",
+        required = true,
+    )
+    val lightThemeColorOption = colorOption(
+        key = "lightThemeColor",
+        default = DEFAULT_LIGHT_THEME_COLOR,
+        values = splashLightThemeColors
+            .filterKeys { it != "custom" }
+            .mapKeys { (key, _) ->
+                key.split('_').joinToString(" ") { word ->
+                    word.replaceFirstChar(Char::uppercase)
+                }
+            },
+        title = "Custom light theme color",
+        description = "Color for the in-app Patch option and its system splash theme. " +
+                "Can be a hex color (#AARRGGBB) or a color resource reference.",
+        required = true,
+    )
+
     dependsOn(
         sharedThemePatch,
         settingsPatch,
+        versionCheckPatch,
         splashScreenAnimationBytecodePatch,
         runtimeThemeBytecodePatch,
+        elementsForegroundColorBytecodePatch,
+        newContentIndicatorBytecodePatch,
     )
 
     execute {
+        val customDarkThemeColor = darkThemeColorOption.valueOrThrow()
+        val customLightThemeColor = lightThemeColorOption.valueOrThrow()
         val existingColorResourceNames = document("res/values/public.xml").use { document ->
             val publicNodes = document.getElementsByTagName("public")
             (0 until publicNodes.length)
@@ -211,8 +494,22 @@ val themePatch = resourcePatch(
                 .map { it.getAttribute("name") }
                 .toSet()
         }
-        val precompiledDarkThemeResources = stockDarkThemeColors
-            .filterKeys(existingColorResourceNames::contains)
+
+        // Keep YouTube's neutral player colors stock globally. The status-bar fallback shares the
+        // translucent entries, so its selected RGB is applied only at the bytecode fingerprint.
+        val precompiledDarkThemeResources = stockDarkThemeColors.filterKeys { name ->
+            name !in stockPlayerColorNames && name in existingColorResourceNames
+        } + setOf(
+            "yt_ref_color_constants_default_baseline_black_black1",
+            "yt_ref_color_constants_default_baseline_black_black3",
+            "yt_sys_color_baseline_dark_menu_background",
+            "yt_sys_color_baseline_dark_static_black",
+            "yt_sys_color_baseline_dark_raised_background",
+            "yt_sys_color_baseline_dark_base_background",
+            "yt_sys_color_baseline_light_inverted_background",
+            "yt_sys_color_baseline_light_static_black",
+        ).filter(existingColorResourceNames::contains).associateWith { "#FF0F0F0F" }
+
         val precompiledLightThemeResources = setOf(
             "yt_white1",
             "yt_white1_opacity95",
@@ -222,59 +519,71 @@ val themePatch = resourcePatch(
             "yt_white4",
             "material_grey_50",
             "material_grey_100",
+            "yt_sys_color_baseline_light_base_background",
+            "yt_sys_color_baseline_light_raised_background",
+            "yt_sys_color_baseline_light_menu_background",
         ).filter(existingColorResourceNames::contains)
-        val precompiledLightThemeOpacity70Resource =
-            "yt_white1_opacity70".takeIf(existingColorResourceNames::contains)
-
         // Android 8–10 have no public ResourcesLoader API. Precompile every dark/light pair under
-        // one synthetic MCC and a pair-specific MNC, then select concrete resources before
-        // inflation. Keeping the MCC synthetic prevents these variants from matching real mobile
-        // networks on Android 11+, where the runtime loader remains authoritative. The qualified
-        // files override existing app entries because arsclib cannot introduce a new resource-table
-        // entry from a qualified-only definition.
-        val precompiledDarkThemeKeys = listOf("stock") + darkThemeKeys
-        val precompiledLightThemeKeys = lightThemeKeys
+        // one synthetic MCC and a pair-specific MNC, plus separate foreground-disabled MNCs for
+        // the app's dark and light appearances. A day/night qualifier cannot be used here because
+        // YouTube can force an appearance that differs from the device configuration. Keeping the
+        // MCC synthetic prevents these variants from matching real mobile networks on Android 11+,
+        // where the runtime loader remains authoritative. The qualified files override existing
+        // app entries because arsclib cannot introduce a new resource-table entry from a
+        // qualified-only definition.
+        val precompiledDarkThemeKeys = listOf("stock") + darkThemeKeys + PATCH_OPTION_THEME_KEY
+        val precompiledLightThemeKeys = lightThemeKeys + PATCH_OPTION_THEME_KEY
+        val precompiledThemePairCount =
+            precompiledDarkThemeKeys.size * precompiledLightThemeKeys.size
         precompiledDarkThemeKeys.forEachIndexed { darkIndex, darkKey ->
             val selectedDarkColor =
-                if (darkKey == "stock") null else precompiledDarkThemeColors[darkKey]
+                when (darkKey) {
+                    "stock" -> null
+                    PATCH_OPTION_THEME_KEY -> customDarkThemeColor
+                    else -> precompiledDarkThemeColors[darkKey]
+                }
             precompiledLightThemeKeys.forEachIndexed { lightIndex, lightKey ->
                 val selectedLightColor =
-                    precompiledLightThemeColors[lightKey] ?: DEFAULT_LIGHT_THEME_COLOR
+                    if (lightKey == PATCH_OPTION_THEME_KEY) {
+                        customLightThemeColor
+                    } else {
+                        precompiledLightThemeColors[lightKey] ?: DEFAULT_LIGHT_THEME_COLOR
+                    }
                 val mnc = darkIndex * precompiledLightThemeKeys.size + lightIndex + 1
-                val directory =
-                    "values-mcc$PRECOMPILED_THEME_MCC-mnc${mnc.toString().padStart(3, '0')}"
+                val darkBackgroundMnc = mnc + precompiledThemePairCount
+                val lightBackgroundMnc = mnc + precompiledThemePairCount * 2
+
                 // ARSCLib derives the values resource type from the XML filename.
-                val path = "res/$directory/colors.xml"
-                get(path).apply {
-                    parentFile?.mkdirs()
-                    writeText("<?xml version=\"1.0\" encoding=\"utf-8\"?><resources />")
-                }
-                document(path).use { document ->
-                    val resourcesNode = document.documentElement
-                    precompiledDarkThemeResources.forEach { (stockName, stockColor) ->
-                        resourcesNode.appendChild(document.createElement("color").apply {
-                            setAttribute("name", stockName)
-                            textContent = selectedDarkColor?.let {
-                                darkThemeColorWithStockAlpha(
-                                    it,
-                                    stockColor,
-                                )
-                            } ?: stockColor
-                        })
-                    }
-                    precompiledLightThemeResources.forEach { name ->
-                        resourcesNode.appendChild(document.createElement("color").apply {
-                            setAttribute("name", name)
-                            textContent = selectedLightColor
-                        })
-                    }
-                    precompiledLightThemeOpacity70Resource?.let { name ->
-                        resourcesNode.appendChild(document.createElement("color").apply {
-                            setAttribute("name", name)
-                            textContent = lightThemeColorWithOpacity70(selectedLightColor)
-                        })
-                    }
-                }
+                writePrecompiledThemeVariant(
+                    "res/values-mcc$PRECOMPILED_THEME_MCC-" +
+                            "mnc${mnc.toString().padStart(3, '0')}/colors.xml",
+                    precompiledDarkThemeResources,
+                    precompiledLightThemeResources,
+                    selectedDarkColor,
+                    selectedLightColor,
+                    includeDark = true,
+                    includeLight = true,
+                )
+                writePrecompiledThemeVariant(
+                    "res/values-mcc$PRECOMPILED_THEME_MCC-" +
+                            "mnc${darkBackgroundMnc.toString().padStart(3, '0')}/colors.xml",
+                    precompiledDarkThemeResources,
+                    precompiledLightThemeResources,
+                    selectedDarkColor,
+                    selectedLightColor,
+                    includeDark = true,
+                    includeLight = false,
+                )
+                writePrecompiledThemeVariant(
+                    "res/values-mcc$PRECOMPILED_THEME_MCC-" +
+                            "mnc${lightBackgroundMnc.toString().padStart(3, '0')}/colors.xml",
+                    precompiledDarkThemeResources,
+                    precompiledLightThemeResources,
+                    selectedDarkColor,
+                    selectedLightColor,
+                    includeDark = false,
+                    includeLight = true,
+                )
             }
         }
 
@@ -317,22 +626,46 @@ val themePatch = resourcePatch(
                         setAttribute("name", RUNTIME_LIGHT_THEME_COLOR_OPACITY70)
                         textContent = lightThemeColorWithOpacity70(DEFAULT_LIGHT_THEME_COLOR)
                     })
+                    resourcesNode.appendChild(document.createElement("color").apply {
+                        setAttribute("name", PATCH_OPTION_DARK_THEME_COLOR)
+                        textContent = customDarkThemeColor
+                    })
+                    resourcesNode.appendChild(document.createElement("color").apply {
+                        setAttribute("name", PATCH_OPTION_LIGHT_THEME_COLOR)
+                        textContent = customLightThemeColor
+                    })
                 }
 
                 for (i in 0 until childNodes.length) {
                     val node = childNodes.item(i) as? Element ?: continue
 
                     node.textContent = when (node.getAttribute("name")) {
+                        in stockPlayerColorNames -> continue
+
                         in runtimeDarkThemeResources ->
                             "@color/${runtimeDarkThemeResources.getValue(node.getAttribute("name"))}"
 
+                        "yt_ref_color_constants_default_baseline_black_black1",
+                        "yt_sys_color_baseline_dark_raised_background" ->
+                            "@color/${runtimeDarkThemeResources.getValue("yt_black1")}"
+
+                        "yt_sys_color_baseline_dark_menu_background" ->
+                            "@color/${runtimeDarkThemeResources.getValue("yt_black0")}"
+
+                        "yt_ref_color_constants_default_baseline_black_black3",
+                        "yt_sys_color_baseline_dark_static_black",
+                        "yt_sys_color_baseline_dark_base_background",
+                        "yt_sys_color_baseline_light_inverted_background",
+                        "yt_sys_color_baseline_light_static_black" ->
+                            "@color/${runtimeDarkThemeResources.getValue("yt_black3")}"
+
                         "yt_white1", "yt_white1_opacity95", "yt_white1_opacity98",
                         "yt_white2", "yt_white3", "yt_white4",
-                        "material_grey_50", "material_grey_100" ->
+                        "material_grey_50", "material_grey_100",
+                        "yt_sys_color_baseline_light_base_background",
+                        "yt_sys_color_baseline_light_raised_background",
+                        "yt_sys_color_baseline_light_menu_background" ->
                             "@color/$RUNTIME_LIGHT_THEME_COLOR"
-
-                        "yt_white1_opacity70" ->
-                            "@color/$RUNTIME_LIGHT_THEME_COLOR_OPACITY70"
 
                         else -> continue
                     }
@@ -340,20 +673,154 @@ val themePatch = resourcePatch(
             }
         }
 
-        val currentTheme = if (MATERIALYOU.included == true)
-            "MaterialYou + Stock"
-        else
-            "Stock"
+        val hasPatchOptionDarkThemeColor = customDarkThemeColor != DEFAULT_CUSTOM_DARK_THEME_COLOR
+        val hasPatchOptionLightThemeColor = customLightThemeColor != DEFAULT_LIGHT_THEME_COLOR
+        addPatchOptionThemeEntries(hasPatchOptionDarkThemeColor, hasPatchOptionLightThemeColor)
+        addSplashThemes(customDarkThemeColor, customLightThemeColor)
 
-        updatePatchStatusTheme(currentTheme)
-
-        addPreference(
-            arrayOf(
-                "PREFERENCE_SCREEN: GENERAL",
-                "SETTINGS: RUNTIME_THEME",
-                "SETTINGS: SPLASH_SCREEN_ANIMATION_STYLE",
-            )
+        val themeSettings = mutableListOf(
+            "PREFERENCE_SCREEN: GENERAL",
+            "SETTINGS: THEME_SETTINGS",
+            "SETTINGS: RUNTIME_THEME",
+            "SETTINGS: SPLASH_SCREEN_ANIMATION_STYLE",
         )
+        if (is_20_00_or_greater) {
+            themeSettings += "SETTINGS: THEME_COLOR_CHANGE_FOREGROUND"
+        }
+        addPreference(themeSettings.toTypedArray(), THEME)
 
+    }
+}
+
+/** Adds a selectable entry for colors supplied through the Theme patch options. */
+private fun ResourcePatchContext.addPatchOptionThemeEntries(
+    includeDark: Boolean,
+    includeLight: Boolean,
+) {
+    if (!includeDark && !includeLight) return
+
+    document("res/values/arrays.xml").use { document ->
+        fun findArray(name: String): Element {
+            val arrays = document.getElementsByTagName("string-array")
+            return (0 until arrays.length)
+                .map { arrays.item(it) as Element }
+                .firstOrNull { it.getAttribute("name") == name }
+                ?: throw PatchException("Could not find theme setting array: $name")
+        }
+
+        fun addEntry(arrayName: String, value: String, customValue: String) {
+            val array = findArray(arrayName)
+            val customEntry = (0 until array.childNodes.length)
+                .map { array.childNodes.item(it) }
+                .filterIsInstance<Element>()
+                .lastOrNull { it.tagName == "item" && it.textContent.trim() == customValue }
+                ?: throw PatchException("Could not find Custom entry in theme setting array: $arrayName")
+
+            array.insertBefore(document.createElement("item").apply {
+                textContent = value
+            }, customEntry)
+        }
+
+        if (includeDark) {
+            addEntry(
+                "morphe_dark_theme_entries",
+                PATCH_OPTION_THEME_ENTRY,
+                "@string/revanced_icon_custom",
+            )
+            addEntry("morphe_dark_theme_entry_values", PATCH_OPTION_THEME_KEY, "custom")
+        }
+        if (includeLight) {
+            addEntry(
+                "morphe_light_theme_entries",
+                PATCH_OPTION_THEME_ENTRY,
+                "@string/revanced_icon_custom",
+            )
+            addEntry("morphe_light_theme_entry_values", PATCH_OPTION_THEME_KEY, "custom")
+        }
+    }
+}
+
+/**
+ * Adds stable starting-window themes for every built-in app-theme preset.
+ *
+ * The system creates the original splash screen before Application.onCreate, so the runtime
+ * resource overlay cannot affect the manifest theme in time. These styles contain concrete colors
+ * that the system process can resolve before the app process starts; the Activity hook selects the
+ * matching style after installing the existing overlay.
+ */
+private fun ResourcePatchContext.addSplashThemes(
+    customDarkThemeColor: String,
+    customLightThemeColor: String,
+) {
+    val themes = listOf(
+        SPLASH_THEME_DARK_PREFIX to
+                (splashDarkThemeColors +
+                        ("custom" to customDarkThemeColor) +
+                        (PATCH_OPTION_THEME_KEY to customDarkThemeColor)),
+        SPLASH_THEME_LIGHT_PREFIX to
+                (splashLightThemeColors +
+                        ("custom" to customLightThemeColor) +
+                        (PATCH_OPTION_THEME_KEY to customLightThemeColor)),
+    )
+
+    listOf(
+        "res/values/styles.xml" to false,
+        "res/values-v31/styles.xml" to true,
+    ).forEach { (path, includeSplashBackground) ->
+        val stylesFile = get(path)
+        if (!stylesFile.exists()) {
+            stylesFile.parentFile?.mkdirs()
+            stylesFile.writeText("<?xml version=\"1.0\" encoding=\"utf-8\"?><resources />")
+        }
+
+        document(path).use { document ->
+            val resources = document.documentElement
+
+            themes.forEach { (themePrefix, themeColors) ->
+                themeColors.forEach { (themeKey, color) ->
+                    listOf("" to false, SPLASH_THEME_NO_ICON_SUFFIX to true).forEach {
+                        (iconSuffix, hideSplashIcon) ->
+                        val themeName = themePrefix + themeKey + iconSuffix
+                        (0 until resources.childNodes.length)
+                            .map { resources.childNodes.item(it) }
+                            .filterIsInstance<Element>()
+                            .filter {
+                                it.tagName == "style" && it.getAttribute("name") == themeName
+                            }
+                            .forEach(resources::removeChild)
+
+                        val style = document.createElement("style").apply {
+                            setAttribute("name", themeName)
+                            setAttribute("parent", SPLASH_THEME_PARENT)
+                        }
+
+                        fun addItem(name: String, value: String = color) {
+                            style.appendChild(document.createElement("item").apply {
+                                setAttribute("name", name)
+                                textContent = value
+                            })
+                        }
+
+                        addItem("android:windowBackground")
+                        if (includeSplashBackground) {
+                            addItem("android:windowSplashScreenBackground")
+                            if (hideSplashIcon) {
+                                // Clear all artwork layers so the persisted no-icon theme cannot
+                                // briefly reveal stock branding on OEM splash implementations.
+                                arrayOf(
+                                    "android:windowSplashScreenAnimatedIcon",
+                                    "android:windowSplashScreenBrandingImage",
+                                    "android:windowSplashScreenIconBackgroundColor",
+                                ).forEach { attribute ->
+                                    addItem(attribute, "@android:color/transparent")
+                                }
+                                addItem("android:windowSplashScreenAnimationDuration", "0")
+                            }
+                        }
+                        resources.appendChild(style)
+                    }
+                }
+            }
+        }
     }
 }

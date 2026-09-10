@@ -16,6 +16,7 @@ import app.morphe.patcher.anyInstruction
 import app.morphe.patcher.fieldAccess
 import app.morphe.patcher.literal
 import app.morphe.patcher.methodCall
+import app.morphe.patcher.newInstance
 import app.morphe.patcher.opcode
 import app.morphe.patcher.string
 import app.morphe.patches.shared.mapping.ResourceType
@@ -177,6 +178,55 @@ internal object SeekbarTappingFingerprint : Fingerprint(
     }
 )
 
+internal object ModernOnTouchEventHandlerFingerprint : Fingerprint(
+    name = "onTouchEvent",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.PUBLIC),
+    returnType = "Z",
+    parameters = listOf("L"),
+    filters = OpcodesFilter.opcodesToFilters(
+        Opcode.INVOKE_VIRTUAL,
+        Opcode.RETURN,
+        Opcode.IGET_OBJECT,
+        Opcode.IGET_BOOLEAN,
+        Opcode.IF_EQZ,
+        Opcode.INVOKE_VIRTUAL,
+        Opcode.RETURN,
+        Opcode.INT_TO_FLOAT,
+        Opcode.INT_TO_FLOAT,
+        Opcode.INVOKE_VIRTUAL,
+        Opcode.MOVE_RESULT,
+        Opcode.IF_EQZ,
+        Opcode.INVOKE_VIRTUAL,
+        Opcode.INVOKE_VIRTUAL,
+    )
+)
+
+internal object ModernTapToSeekFingerprint : Fingerprint(
+    name = "onTouchEvent",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf("Landroid/view/MotionEvent;"),
+    filters = listOf(
+        literal(Int.MAX_VALUE),
+        newInstance("Landroid/graphics/Point;"),
+        methodCall(
+            smali = "Landroid/graphics/Point;-><init>(II)V",
+            location = MatchAfterImmediately(),
+        ),
+        methodCall(
+            smali = "Lj$/util/Optional;->of(Ljava/lang/Object;)Lj$/util/Optional;",
+            location = MatchAfterImmediately(),
+        ),
+        opcode(Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately()),
+        fieldAccess(
+            opcode = Opcode.IPUT_OBJECT,
+            type = "Lj$/util/Optional;",
+            location = MatchAfterImmediately(),
+        ),
+        opcode(Opcode.INVOKE_VIRTUAL, location = MatchAfterWithin(10)),
+    ),
+)
+
 internal fun indexOfPointInstruction(method: Method) =
     method.indexOfFirstInstructionReversed {
         opcode == Opcode.INVOKE_DIRECT &&
@@ -198,6 +248,15 @@ internal object TimeCounterFingerprint : Fingerprint(
 internal object TimelineMarkerArrayFingerprint : Fingerprint(
     returnType = "[Lcom/google/android/libraries/youtube/player/features/overlay/timebar/TimelineMarker;",
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+)
+
+/**
+ * YouTube 20.28+ feature flag controlling the fullscreen seekbar size.
+ */
+internal object FullscreenLargeSeekbarFeatureFlagFingerprint : Fingerprint(
+    filters = listOf(
+        literal(45691569)
+    )
 )
 
 // region Livestream DVR

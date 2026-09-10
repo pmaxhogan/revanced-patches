@@ -77,6 +77,10 @@ internal enum class PatchList(
         "Disable layout updates",
         "Adds an option to disable layout updates by server."
     ),
+    DISABLE_PLAYLIST_AUTOPLAY(
+        "Disable playlist autoplay",
+        "Adds an option to stop a playlist from automatically advancing to the next video."
+    ),
     DISABLE_RESUMING_MINIPLAYER_ON_STARTUP(
         "Disable resuming Miniplayer on startup",
         "Adds an option to disable the Miniplayer 'Continue watching' from resuming on app startup."
@@ -104,6 +108,14 @@ internal enum class PatchList(
     FULLSCREEN_COMPONENTS(
         "Fullscreen components",
         "Adds options to hide or change components related to fullscreen."
+    ),
+    FULLSCREEN_VIDEO_SCALE(
+        "Fullscreen video scale",
+        "Adds options to stretch or zoom videos to fill the screen in fullscreen mode."
+    ),
+    GEMINI(
+        "Gemini",
+        "Adds options to use Gemini for video summaries, transcription, and settings search."
     ),
     GMSCORE_SUPPORT(
         "GmsCore support",
@@ -161,10 +173,6 @@ internal enum class PatchList(
         "Hook download actions",
         "Adds support to download videos with an external downloader app using the in-app download button."
     ),
-    MATERIALYOU(
-        "MaterialYou",
-        "Applies the MaterialYou theme for Android 12+ devices."
-    ),
     MINIPLAYER(
         "Miniplayer",
         "Adds options to change the in-app minimized player, and if patching target 19.16+ adds options to use modern miniplayers."
@@ -172,6 +180,10 @@ internal enum class PatchList(
     NAVIGATION_BAR_COMPONENTS(
         "Navigation bar components",
         "Adds options to hide or change components related to the navigation bar."
+    ),
+    OPEN_CHANNEL_OF_LIVE_AVATAR(
+        "Open channel of live avatar",
+        "Adds an option to prevent a channel's current live video from opening when tapping its avatar."
     ),
     OPEN_LINKS_EXTERNALLY(
         "Open links externally",
@@ -189,9 +201,17 @@ internal enum class PatchList(
         "Player components",
         "Adds options to hide or change components related to the video player."
     ),
+    POTOKEN_PROVIDER(
+        "PoToken provider",
+        "Adds option to get PoToken using the built-in PoToken provider."
+    ),
     RELOAD_VIDEO(
         "Reload video",
         "Adds an option to display a button in the video player to reload the current video."
+    ),
+    SAVE_TO_WATCH_LATER(
+        "Save to Watch later",
+        "Adds options to save videos to Watch later from the video player or feed flyout menu."
     ),
     REMOVE_BACKGROUND_PLAYBACK_RESTRICTIONS(
         "Remove background playback restrictions",

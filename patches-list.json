@@ -1,5 +1,5 @@
 {
-  "version": "4.3.0-dev.2",
+  "version": "4.3.0-dev.5",
   "patches": [
     {
       "name": "Alternative thumbnails",
@@ -13,9 +13,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -30,9 +30,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -64,9 +64,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -99,9 +99,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -129,13 +129,15 @@
         "ResourcePatch",
         "BytecodePatch",
         "BytecodePatch",
-        "BytecodePatch"
+        "BytecodePatch",
+        "BytecodePatch",
+        "ResourcePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -155,13 +157,14 @@
       "description": "Adds an option to use text toggles instead of switch toggles within the additional settings menu.",
       "use": true,
       "dependencies": [
+        "ResourcePatch",
         "ResourcePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -196,9 +199,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -231,9 +234,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -268,9 +271,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -285,9 +288,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -315,13 +318,14 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -337,7 +341,7 @@
         {
           "key": "customIcon",
           "title": "Custom icon",
-          "description": "    Folder with images to use as a custom icon.\n\n    The folder must contain one or more of the following folders, depending on the DPI of the device:\n    - mipmap-xxxhdpi\n- mipmap-xxhdpi\n- mipmap-xhdpi\n- mipmap-hdpi\n- mipmap-mdpi\n\n    Each provided mipmap folder must contain all of the following files:\n    - morphe_adaptive_background_custom.png\n- morphe_adaptive_foreground_custom.png\n\n    Optionally, the path can contain a 'drawable' folder with:\n    - morphe_adaptive_monochrome_custom.xml\n    - morphe_notification_icon_custom.xml\n\n    A notification icon can instead be supplied as morphe_notification_icon_custom.xml with a\n    .png extension in one or more matching drawable-<dpi> folders.",
+          "description": "Folder containing custom branding resources. The folder is scanned recursively, so Android\nresource folders can be placed at the root or grouped under folders such as 'launcher',\n'header', 'splash', 'monochrome', and 'settings'.\n\nEvery resource is optional. Icon resources accept XML or PNG files. \nA launcher icon is also used for the RVX settings entry when no dedicated settings icon \nis present. A complete 'drawable/avd_anim.xml' splash takes priority over static splash images.",
           "required": false,
           "type": "kotlin.String",
           "default": null,
@@ -351,6 +355,7 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch"
       ],
@@ -375,7 +380,7 @@
         {
           "key": "customIcon",
           "title": "Custom icon",
-          "description": "    Folder with images to use as a custom icon.\n\n    The folder must contain one or more of the following folders, depending on the DPI of the device:\n    - mipmap-xxxhdpi\n- mipmap-xxhdpi\n- mipmap-xhdpi\n- mipmap-hdpi\n- mipmap-mdpi\n\n    Each provided mipmap folder must contain all of the following files:\n    - morphe_adaptive_background_custom.png\n- morphe_adaptive_foreground_custom.png\n\n    Optionally, the path can contain a 'drawable' folder with:\n    - morphe_adaptive_monochrome_custom.xml\n    - morphe_notification_icon_custom.xml\n\n    A notification icon can instead be supplied as morphe_notification_icon_custom.xml with a\n    .png extension in one or more matching drawable-<dpi> folders.",
+          "description": "Folder containing custom branding resources. The folder is scanned recursively, so Android\nresource folders can be placed at the root or grouped under folders such as 'launcher',\n'header', 'splash', 'monochrome', and 'settings'.\n\nEvery resource is optional. Icon resources accept XML or PNG files. \nA launcher icon is also used for the RVX settings entry when no dedicated settings icon \nis present. A complete 'drawable/avd_anim.xml' splash takes priority over static splash images.",
           "required": false,
           "type": "kotlin.String",
           "default": null,
@@ -392,9 +397,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -426,9 +431,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -480,9 +485,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -542,9 +547,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -559,9 +564,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -575,9 +580,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -603,6 +608,23 @@
       "options": []
     },
     {
+      "name": "Disable playlist autoplay",
+      "description": "Adds an option to stop a playlist from automatically advancing to the next video.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
       "name": "Disable resuming Miniplayer on startup",
       "description": "Adds an option to disable the Miniplayer 'Continue watching' from resuming on app startup.",
       "use": true,
@@ -611,9 +633,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -629,9 +651,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -646,9 +668,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -681,9 +703,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -697,9 +719,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -727,6 +749,7 @@
       "description": "Adds options to hide or change flyout menu components.",
       "use": true,
       "dependencies": [
+        "BytecodePatch",
         "ResourcePatch",
         "ResourcePatch",
         "BytecodePatch",
@@ -776,9 +799,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -792,9 +815,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -839,9 +862,47 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Fullscreen video scale",
+      "description": "Adds options to stretch or zoom videos to fill the screen in fullscreen mode.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "ResourcePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Gemini",
+      "description": "Adds options to use Gemini for video summaries, transcription, and settings search.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch",
+        "ResourcePatch",
+        "BytecodePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -939,9 +1000,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -1020,9 +1081,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1036,9 +1097,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1101,9 +1162,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1148,9 +1209,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1172,9 +1233,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1194,9 +1255,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1211,9 +1272,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1252,9 +1313,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1289,9 +1350,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1313,9 +1374,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1345,9 +1406,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -1394,30 +1455,14 @@
       "description": "Adds support to download videos with an external downloader app using the in-app download button.",
       "use": true,
       "dependencies": [
-        "ResourcePatch"
-      ],
-      "compatiblePackages": {
-        "com.google.android.youtube": [
-          "19.43.41",
-          "20.05.46",
-          "20.51.39"
-        ]
-      },
-      "options": []
-    },
-    {
-      "name": "MaterialYou",
-      "description": "Applies the MaterialYou theme for Android 12+ devices.",
-      "use": false,
-      "dependencies": [
         "ResourcePatch",
         "ResourcePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1433,9 +1478,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1476,9 +1521,29 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Open channel of live avatar",
+      "description": "Adds an option to prevent a channel's current live video from opening when tapping its avatar.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1493,9 +1558,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1517,9 +1582,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -1579,9 +1644,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1604,9 +1669,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1666,9 +1731,48 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "PoToken provider",
+      "description": "Adds option to get PoToken using the built-in PoToken provider.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "ResourcePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.apps.youtube.music": [
+          "8.12.54",
+          "8.28.54",
+          "8.30.54",
+          "9.15.51"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "PoToken provider",
+      "description": "Adds option to get PoToken using the built-in PoToken provider.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "ResourcePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1685,7 +1789,8 @@
       "compatiblePackages": {
         "com.google.android.youtube": [
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1719,9 +1824,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1754,9 +1859,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1811,9 +1916,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1847,9 +1952,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1881,9 +1986,32 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Save to Watch later",
+      "description": "Adds options to save videos to Watch later from the video player or feed flyout menu.",
+      "use": true,
+      "dependencies": [
+        "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "20.05.46",
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1905,9 +2033,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1923,9 +2051,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -1944,9 +2072,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -2043,9 +2171,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2070,6 +2198,7 @@
         "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
+        "BytecodePatch",
         "ResourcePatch",
         "BytecodePatch",
         "ResourcePatch",
@@ -2077,9 +2206,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2094,9 +2223,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -2210,9 +2339,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -2271,9 +2400,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2366,9 +2495,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2383,9 +2512,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2404,9 +2533,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2426,7 +2555,33 @@
           "9.15.51"
         ]
       },
-      "options": []
+      "options": [
+        {
+          "key": "darkThemeColor",
+          "title": "Custom dark theme color",
+          "description": "Static system splash color for the in-app Custom dark theme. Can be a hex color (#AARRGGBB) or a color resource reference.",
+          "required": true,
+          "type": "kotlin.String",
+          "default": "#FF000000",
+          "values": {
+            "Stock": "#FF0F0F0F",
+            "Amoled Black": "#FF000000",
+            "Material You Neutral": "@android:color/system_neutral1_900",
+            "Material You Primary": "@android:color/system_accent1_800",
+            "Material You Secondary": "@android:color/system_accent2_800",
+            "Material You Tertiary": "@android:color/system_accent3_800",
+            "Modern Youtube": "#FF0F0F0F",
+            "Classic Youtube": "#FF212121",
+            "Catppuccin Mocha": "#FF181825",
+            "Dark Pink": "#FF290025",
+            "Dark Blue": "#FF001029",
+            "Dark Green": "#FF002905",
+            "Dark Yellow": "#FF282900",
+            "Dark Orange": "#FF291800",
+            "Dark Red": "#FF290000"
+          }
+        }
+      ]
     },
     {
       "name": "Theme",
@@ -2435,17 +2590,71 @@
       "dependencies": [
         "ResourcePatch",
         "ResourcePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
-      "options": []
+      "options": [
+        {
+          "key": "darkThemeColor",
+          "title": "Custom dark theme color",
+          "description": "Color for the in-app Patch option and its system splash theme. Can be a hex color (#AARRGGBB) or a color resource reference.",
+          "required": true,
+          "type": "kotlin.String",
+          "default": "#FF000000",
+          "values": {
+            "Stock": "#FF0F0F0F",
+            "Amoled Black": "#FF000000",
+            "Material You Neutral": "@android:color/system_neutral1_900",
+            "Material You Primary": "@android:color/system_accent1_800",
+            "Material You Secondary": "@android:color/system_accent2_800",
+            "Material You Tertiary": "@android:color/system_accent3_800",
+            "Modern Youtube": "#FF0F0F0F",
+            "Classic Youtube": "#FF212121",
+            "Catppuccin Mocha": "#FF181825",
+            "Dark Pink": "#FF290025",
+            "Dark Blue": "#FF001029",
+            "Dark Green": "#FF002905",
+            "Dark Yellow": "#FF282900",
+            "Dark Orange": "#FF291800",
+            "Dark Red": "#FF290000"
+          }
+        },
+        {
+          "key": "lightThemeColor",
+          "title": "Custom light theme color",
+          "description": "Color for the in-app Patch option and its system splash theme. Can be a hex color (#AARRGGBB) or a color resource reference.",
+          "required": true,
+          "type": "kotlin.String",
+          "default": "#FFFFFFFF",
+          "values": {
+            "White": "#FFFFFFFF",
+            "Material You Neutral": "@android:color/system_neutral1_100",
+            "Material You Primary": "@android:color/system_accent1_200",
+            "Material You Secondary": "@android:color/system_accent2_200",
+            "Material You Tertiary": "@android:color/system_accent3_200",
+            "Catppuccin Latte": "#FFE6E9EF",
+            "Light Pink": "#FFFCCFF3",
+            "Light Blue": "#FFD1E0FF",
+            "Light Green": "#FFCCFFCC",
+            "Light Yellow": "#FFFDFFCC",
+            "Light Orange": "#FFFFE6CC",
+            "Light Red": "#FFFFD6D6",
+            "Pale Blue": "#FFD4FFF8",
+            "Pale Green": "#FFD1FFCC",
+            "Pale Yellow": "#FFFFE9AA"
+          }
+        }
+      ]
     },
     {
       "name": "Third-party lyrics",
@@ -2480,9 +2689,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2517,9 +2726,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -2647,9 +2856,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2663,9 +2872,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": [
@@ -2753,9 +2962,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []
@@ -2792,9 +3001,9 @@
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
-          "19.43.41",
           "20.05.46",
-          "20.51.39"
+          "21.04.223",
+          "21.07.247"
         ]
       },
       "options": []

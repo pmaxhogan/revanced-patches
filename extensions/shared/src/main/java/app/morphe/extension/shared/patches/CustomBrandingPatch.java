@@ -55,13 +55,19 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.Animatable;
+import android.graphics.drawable.Animatable2;
+import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -73,6 +79,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,6 +87,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import app.morphe.extension.shared.settings.Setting;
 import app.morphe.extension.shared.settings.SharedYouTubeSettings;
 import app.morphe.extension.shared.settings.preference.IconListPreference;
 import app.morphe.extension.shared.utils.BaseThemeUtils;
@@ -90,13 +98,15 @@ import app.morphe.extension.shared.utils.Utils;
 /**
  * Enables the launcher alias selected in the custom branding settings.
  *
- * <p>The patch creates one alias for every app-name/icon combination. Android keeps the alias
- * labels and icons in the manifest, so changing either setting only requires switching which
- * alias is enabled. The application resources themselves remain untouched.</p>
+ * <p>The patch creates a normal alias and, when applicable, a system-splash companion for every
+ * app-name/icon combination. Android keeps the alias labels and icons in the manifest, while the
+ * system-splash theme is persisted with the platform API because activity aliases cannot override
+ * their target activity's theme. The application resources themselves remain untouched.</p>
  */
 @SuppressWarnings({"deprecation", "unused"})
 public final class CustomBrandingPatch {
     private static final String ICON_VALUES_RESOURCE = "morphe_custom_branding_icon_entry_values";
+    private static final String NAME_ENTRIES_RESOURCE = "morphe_custom_branding_name_entries";
     private static final String NAME_VALUES_RESOURCE = "morphe_custom_branding_name_entry_values";
     private static final String DEFAULT_ICON_RESOURCE = "morphe_custom_branding_default_icon";
     private static final String DEFAULT_NAME_INDEX_RESOURCE = "morphe_custom_branding_default_name_index";
@@ -105,9 +115,44 @@ public final class CustomBrandingPatch {
     private static final String NOTIFICATION_ICON_PREFIX = "morphe_notification_icon_";
     private static final String HEADER_RESOURCE_PREFIX = "morphe_custom_branding_header_";
     private static final String SPLASH_RESOURCE_PREFIX = "morphe_custom_branding_splash_";
+    private static final String SYSTEM_SPLASH_STYLE_PREFIX =
+            "morphe_custom_branding_system_splash_";
+    private static final String SYSTEM_SPLASH_THEME_KEY =
+            "morphe_custom_branding_system_splash_theme_icon";
+    private static final String SYSTEM_SPLASH_THEME_SEPARATOR = "__";
+    private static final String YOUTUBE_DARK_SPLASH_THEME_PREFIX =
+            "morphe_theme_splash_dark_";
+    private static final String YOUTUBE_LIGHT_SPLASH_THEME_PREFIX =
+            "morphe_theme_splash_light_";
+    private static final String MUSIC_SPLASH_THEME_PREFIX = "morphe_theme_splash_";
+    private static final String DARK_THEME_KEY = "morphe_dark_theme";
+    private static final String LIGHT_THEME_KEY = "morphe_light_theme";
+    private static final String LAST_USED_DARK_THEME_KEY = "morphe_theme_last_used_dark_mode";
+    private static final String SYSTEM_SPLASH_ALIAS_SUFFIX = "_system";
     private static final String SPLASH_OVERLAY_TAG = "morphe_custom_branding_splash_overlay";
+    private static final String SPLASH_SCREEN_STYLE_OPTION =
+            "android.activity.splashScreenStyle";
+    private static final int SPLASH_SCREEN_STYLE_SOLID_COLOR = 0;
+    private static final String SPLASH_ANIMATION_STYLE_KEY = "morphe_splash_screen_animation_style";
+    private static final String SPLASH_ANIMATION_STYLE_DEFAULT = "FPS_60_ONE_SECOND";
+    private static final String SPLASH_ANIMATION_STYLE_DISABLED = "DISABLED";
+    private static final String DISABLE_CAIRO_SPLASH_ANIMATION_KEY =
+            "revanced_disable_cairo_splash_animation";
+    private static final String SPLASH_ANIMATION_STYLE_60_BLACK_AND_WHITE = "FPS_60_BLACK_AND_WHITE";
+    private static final String SPLASH_ANIMATION_STYLE_30_BLACK_AND_WHITE = "FPS_30_BLACK_AND_WHITE";
     private static final String CUSTOM_ICON_ALIAS = "custom";
+    private static final String LAUNCHER_RESOURCE_PREFIX = "morphe_launcher_";
+    private static final float RVX_SETTINGS_ICON_SCALE = 0.6f;
+    private static final float MUSIC_CUSTOM_RVX_SETTINGS_ICON_HORIZONTAL_OFFSET_DP = -3.0f;
     private static final int NAME_ALIAS_COUNT = 5;
+    private static boolean systemSplashThemePreparedBeforeLaunch;
+    private static final ColorFilter MONOCHROME_SPLASH_FILTER = new ColorMatrixColorFilter(
+            new ColorMatrix(new float[]{
+                    0.299f, 0.587f, 0.114f, 0, 0,
+                    0.299f, 0.587f, 0.114f, 0, 0,
+                    0.299f, 0.587f, 0.114f, 0, 0,
+                    0, 0, 0, 1, 0,
+            }));
 
     private CustomBrandingPatch() {
     }
@@ -138,7 +183,23 @@ public final class CustomBrandingPatch {
                         & ~Intent.FLAG_ACTIVITY_NEW_TASK
                         & ~Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED;
                 targetIntent.setFlags(targetFlags | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-                startActivity(targetIntent);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // A previous run can have persisted a runtime splash theme. Reset it before
+                    // forwarding through the controllable path; the system-splash alias uses its
+                    // manifest theme and does not enter this activity.
+                    if (!isSystemSplashEnabled(this)) {
+                        SplashScreenBridge.resetTheme(this);
+                    }
+                    // ActivityOptions exposes this publicly only on newer Android releases, but
+                    // the Bundle contract exists from API 31. Keep the forwarded activity's
+                    // system splash icon-free; the size-controlled custom overlay is installed
+                    // once by the main activity during the handoff.
+                    Bundle options = new Bundle();
+                    options.putInt(SPLASH_SCREEN_STYLE_OPTION, SPLASH_SCREEN_STYLE_SOLID_COLOR);
+                    startActivity(targetIntent, options);
+                } else {
+                    startActivity(targetIntent);
+                }
             } finally {
                 finish();
                 overridePendingTransition(0, 0);
@@ -165,6 +226,7 @@ public final class CustomBrandingPatch {
 
     /** Entry point injected into the main activity's {@code onCreate}. */
     public static void setBranding(Activity activity) {
+        systemSplashThemePreparedBeforeLaunch = false;
         try {
             Context context = activity != null ? activity : Utils.getContext();
             if (context == null) return;
@@ -204,6 +266,11 @@ public final class CustomBrandingPatch {
             PackageManager packageManager = context.getPackageManager();
             List<ComponentName> aliases = new ArrayList<>();
             ComponentName selectedComponent = null;
+            boolean useSystemSplash = isSystemSplashEnabled(context);
+            String systemSplashThemeName = getSystemSplashThemeName(context, selectedIcon);
+            systemSplashThemePreparedBeforeLaunch = useSystemSplash
+                    && systemSplashThemeName.equals(
+                            Setting.preferences.getString(SYSTEM_SPLASH_THEME_KEY, ""));
 
             String originalLauncherName = getString(context, ORIGINAL_LAUNCHER_RESOURCE, "");
             IconListPreference.setOriginalLauncherIconName(originalLauncherName);
@@ -221,10 +288,26 @@ public final class CustomBrandingPatch {
                             packageName,
                             packageName + ".morphe_" + iconValue + "_" + nameIndex);
                     aliases.add(component);
-                    if (iconValue.equals(selectedIcon) && nameIndex == selectedNameIndex) {
+                    if (iconValue.equals(selectedIcon)
+                            && nameIndex == selectedNameIndex
+                            && !useSystemSplash) {
                         selectedComponent = component;
                     }
+                    if (!"original".equals(iconValue)) {
+                        ComponentName systemComponent = new ComponentName(
+                                packageName,
+                                packageName + ".morphe_" + iconValue + "_" + nameIndex
+                                        + SYSTEM_SPLASH_ALIAS_SUFFIX);
+                        aliases.add(systemComponent);
+                        if (iconValue.equals(selectedIcon) && nameIndex == selectedNameIndex) {
+                            selectedComponent = useSystemSplash ? systemComponent : component;
+                        }
+                    }
                 }
+            }
+
+            if (activity != null && useSystemSplash) {
+                updateSystemSplashTheme(activity);
             }
 
             if (selectedComponent == null) {
@@ -251,6 +334,106 @@ public final class CustomBrandingPatch {
     }
 
     /**
+     * Persists the splash theme that Android must use on the next cold or warm launch.
+     *
+     * <p>{@code activity-alias} cannot declare its own theme, and the platform splash theme is
+     * process-persistent. Calling this when the setting or selected icon changes prevents the next
+     * launcher restart from reusing the transparent theme installed for the controllable overlay.
+     * Calling it from {@link #setBranding(Activity)} also repairs settings changed outside the
+     * preference UI.</p>
+     */
+    public static void updateSystemSplashTheme(Activity activity) {
+        if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+
+        try {
+            if (!isSystemSplashEnabled(activity)) {
+                SplashScreenBridge.resetTheme(activity);
+                Setting.preferences.removeKey(SYSTEM_SPLASH_THEME_KEY);
+                return;
+            }
+
+            String selectedIcon = SharedYouTubeSettings.CUSTOM_BRANDING_ICON.get();
+            String themeName = getSystemSplashThemeName(activity, selectedIcon);
+            int themeId = ResourceUtils.getIdentifier(
+                    themeName,
+                    ResourceType.STYLE,
+                    activity);
+            if (themeId != 0) {
+                SplashScreenBridge.setTheme(activity, themeId);
+                Setting.preferences.saveString(SYSTEM_SPLASH_THEME_KEY, themeName);
+            }
+        } catch (Exception ignored) {
+            // Leave the host splash theme unchanged when generated resources are unavailable.
+        }
+    }
+
+    /**
+     * Resolves a static Theme-preset background combined with the selected branding animation.
+     *
+     * <p>YouTube may force an appearance independently of the device configuration, so its last
+     * resolved appearance is used before the resolver runs. Music has one dark preset selector.
+     * When Theme is not included, or an imported setting is invalid, the icon-only style remains
+     * a safe fallback.</p>
+     */
+    @NonNull
+    private static String getSystemSplashThemeName(Context context, String selectedIcon) {
+        String baseThemeName = SYSTEM_SPLASH_STYLE_PREFIX + selectedIcon;
+
+        boolean hasYouTubeThemes = ResourceUtils.getIdentifier(
+                YOUTUBE_LIGHT_SPLASH_THEME_PREFIX + "white",
+                ResourceType.STYLE,
+                context) != 0;
+        if (hasYouTubeThemes) {
+            boolean dark = BaseThemeUtils.isAppThemeResolved()
+                    ? BaseThemeUtils.isDarkModeEnabled()
+                    : Setting.preferences.getBoolean(
+                            LAST_USED_DARK_THEME_KEY,
+                            BaseThemeUtils.isDarkModeEnabled());
+            String themeKey = Setting.preferences.getString(
+                    dark ? DARK_THEME_KEY : LIGHT_THEME_KEY,
+                    dark ? "stock" : "white");
+            String appearanceKey = (dark ? "dark_" : "light_") + themeKey;
+            String combinedThemeName = baseThemeName
+                    + SYSTEM_SPLASH_THEME_SEPARATOR + appearanceKey;
+            if (ResourceUtils.getIdentifier(
+                    combinedThemeName, ResourceType.STYLE, context) != 0) {
+                return combinedThemeName;
+            }
+
+            String fallbackThemeName = baseThemeName + SYSTEM_SPLASH_THEME_SEPARATOR
+                    + (dark ? "dark_stock" : "light_white");
+            if (ResourceUtils.getIdentifier(
+                    fallbackThemeName, ResourceType.STYLE, context) != 0) {
+                return fallbackThemeName;
+            }
+            return baseThemeName;
+        }
+
+        boolean hasMusicThemes = ResourceUtils.getIdentifier(
+                MUSIC_SPLASH_THEME_PREFIX + "modern_youtube",
+                ResourceType.STYLE,
+                context) != 0;
+        if (hasMusicThemes) {
+            String themeKey = Setting.preferences.getString(DARK_THEME_KEY, "modern_youtube");
+            String combinedThemeName = baseThemeName
+                    + SYSTEM_SPLASH_THEME_SEPARATOR + themeKey;
+            if (ResourceUtils.getIdentifier(
+                    combinedThemeName, ResourceType.STYLE, context) != 0) {
+                return combinedThemeName;
+            }
+
+            String fallbackThemeName = baseThemeName
+                    + SYSTEM_SPLASH_THEME_SEPARATOR + "modern_youtube";
+            if (ResourceUtils.getIdentifier(
+                    fallbackThemeName, ResourceType.STYLE, context) != 0) {
+                return fallbackThemeName;
+            }
+        }
+
+        return baseThemeName;
+    }
+
+    /**
      * Resolves the selected name for code paths that ask Android for the application name.
      * Launcher aliases still use their manifest labels because Android does not expose a runtime
      * API to change an installed component's label.
@@ -262,18 +445,17 @@ public final class CustomBrandingPatch {
             Context context = Utils.getContext();
             if (context == null) return fallback;
 
-            String[] nameValues = getStringArray(context, NAME_VALUES_RESOURCE);
-            if (nameValues.length == 0) return fallback;
+            String[] nameEntries = getStringArray(context, NAME_ENTRIES_RESOURCE);
+            if (nameEntries.length == 0) return fallback;
 
             int selectedNameIndex = SharedYouTubeSettings.CUSTOM_BRANDING_NAME.get();
-            if (selectedNameIndex < 1 || selectedNameIndex > nameValues.length) {
+            if (selectedNameIndex < 1 || selectedNameIndex > nameEntries.length) {
                 selectedNameIndex = getDefaultAppNameIndex();
             }
 
-            String label = getString(
-                    context,
-                    "morphe_custom_branding_name_entry_" + selectedNameIndex,
-                    fallback);
+            String label = selectedNameIndex >= 1 && selectedNameIndex <= nameEntries.length
+                    ? nameEntries[selectedNameIndex - 1]
+                    : fallback;
             return label.isEmpty() ? fallback : label;
         } catch (Exception ignored) {
             return fallback;
@@ -281,10 +463,12 @@ public final class CustomBrandingPatch {
     }
 
     private static void applyApplicationLabel(Context context, int selectedNameIndex) {
-        String label = getString(
-                context,
-                "morphe_custom_branding_name_entry_" + selectedNameIndex,
-                getString(context, "morphe_custom_branding_original_app_name", "YouTube"));
+        String fallback = getString(
+                context, "morphe_custom_branding_original_app_name", "YouTube");
+        String[] nameEntries = getStringArray(context, NAME_ENTRIES_RESOURCE);
+        String label = selectedNameIndex >= 1 && selectedNameIndex <= nameEntries.length
+                ? nameEntries[selectedNameIndex - 1]
+                : fallback;
 
         if (!label.isEmpty()) {
             context.getApplicationInfo().nonLocalizedLabel = label;
@@ -378,6 +562,34 @@ public final class CustomBrandingPatch {
     public static final class RvxSettingsIconDrawable extends Drawable {
         private Drawable delegate;
 
+        /**
+         * Keeps launcher fallbacks aligned with Music's legacy preference icon slot. Dedicated
+         * settings artwork retains its authored bounds and does not receive implicit scaling.
+         */
+        private void updateDelegateBounds(@NonNull android.graphics.Rect bounds) {
+            if (delegate == null) return;
+
+            if (delegate instanceof RvxSettingsIconFallbackDrawable) {
+                Context context = Utils.getContext();
+                if (context == null) {
+                    delegate.setBounds(bounds);
+                    return;
+                }
+
+                int horizontalOffset = Math.round(
+                        MUSIC_CUSTOM_RVX_SETTINGS_ICON_HORIZONTAL_OFFSET_DP
+                                * context.getResources().getDisplayMetrics().density);
+                delegate.setBounds(
+                        bounds.left + horizontalOffset,
+                        bounds.top,
+                        bounds.right + horizontalOffset,
+                        bounds.bottom);
+                return;
+            }
+
+            delegate.setBounds(bounds);
+        }
+
         private Drawable getDelegate() {
             if (delegate != null) return delegate;
 
@@ -387,7 +599,7 @@ public final class CustomBrandingPatch {
             if (identifier == 0) return null;
 
             delegate = context.getResources().getDrawable(identifier);
-            delegate.setBounds(getBounds());
+            updateDelegateBounds(getBounds());
             delegate.setState(getState());
             delegate.setLevel(getLevel());
             return delegate;
@@ -396,13 +608,16 @@ public final class CustomBrandingPatch {
         @Override
         public void draw(@NonNull Canvas canvas) {
             Drawable drawable = getDelegate();
-            if (drawable != null) drawable.draw(canvas);
+            if (drawable == null) return;
+
+            updateDelegateBounds(getBounds());
+            drawable.draw(canvas);
         }
 
         @Override
         protected void onBoundsChange(@NonNull android.graphics.Rect bounds) {
-            Drawable drawable = getDelegate();
-            if (drawable != null) drawable.setBounds(bounds);
+            getDelegate();
+            updateDelegateBounds(bounds);
         }
 
         @Override
@@ -454,34 +669,292 @@ public final class CustomBrandingPatch {
         }
     }
 
+    private static int getLauncherIconDrawableIdentifier(Context context) {
+        String selectedIcon = SharedYouTubeSettings.CUSTOM_BRANDING_ICON.get();
+        if (selectedIcon.isEmpty()) selectedIcon = "original";
+
+        String resourceName = "original".equals(selectedIcon)
+                ? getString(context, ORIGINAL_LAUNCHER_RESOURCE, "")
+                : LAUNCHER_RESOURCE_PREFIX + selectedIcon;
+        int identifier = getLauncherResourceIdentifier(context, resourceName);
+        if (identifier != 0 || "original".equals(selectedIcon)) return identifier;
+
+        // An icon without bundled launcher layers can still use the stock launcher as a safe
+        // fallback instead of leaving the RVX settings row empty.
+        return getLauncherResourceIdentifier(
+                context, getString(context, ORIGINAL_LAUNCHER_RESOURCE, ""));
+    }
+
+    private static int getLauncherResourceIdentifier(Context context, String resourceName) {
+        if (resourceName.isEmpty()) return 0;
+
+        int identifier = ResourceUtils.getIdentifier(
+                resourceName, ResourceType.MIPMAP, context);
+        if (identifier == 0) {
+            identifier = ResourceUtils.getIdentifier(
+                    resourceName, ResourceType.DRAWABLE, context);
+        }
+        return identifier;
+    }
+
+    /**
+     * Draws a launcher icon as a smaller RVX settings icon when no dedicated settings artwork is
+     * available. The launcher aliases and manifest continue to use the unscaled resource.
+     */
+    public static final class RvxSettingsIconFallbackDrawable extends Drawable {
+        private Drawable delegate;
+
+        private int getSettingsIconSize() {
+            Context context = Utils.getContext();
+            if (context == null) return -1;
+
+            return Math.round(48.0f * context.getResources().getDisplayMetrics().density);
+        }
+
+        private Drawable getDelegate() {
+            if (delegate != null) return delegate;
+
+            Context context = Utils.getContext();
+            if (context == null) return null;
+
+            int identifier = getLauncherIconDrawableIdentifier(context);
+            if (identifier == 0) return null;
+
+            try {
+                delegate = context.getResources().getDrawable(identifier);
+                delegate.setBounds(getBounds());
+                delegate.setState(getState());
+                delegate.setLevel(getLevel());
+                return delegate;
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+
+        @Override
+        public void draw(@NonNull Canvas canvas) {
+            Drawable drawable = getDelegate();
+            if (drawable == null) return;
+
+            android.graphics.Rect bounds = getBounds();
+            if (bounds.isEmpty()) return;
+
+            int scaledWidth = Math.round(bounds.width() * RVX_SETTINGS_ICON_SCALE);
+            int scaledHeight = Math.round(bounds.height() * RVX_SETTINGS_ICON_SCALE);
+            int left = bounds.left + (bounds.width() - scaledWidth) / 2;
+            int top = bounds.top + (bounds.height() - scaledHeight) / 2;
+
+            drawable.setBounds(left, top, left + scaledWidth, top + scaledHeight);
+            drawable.draw(canvas);
+        }
+
+        @Override
+        protected void onBoundsChange(@NonNull android.graphics.Rect bounds) {
+            Drawable drawable = getDelegate();
+            if (drawable != null) drawable.setBounds(bounds);
+        }
+
+        @Override
+        protected boolean onStateChange(@NonNull int[] state) {
+            Drawable drawable = getDelegate();
+            return drawable != null && drawable.setState(state);
+        }
+
+        @Override
+        protected boolean onLevelChange(int level) {
+            Drawable drawable = getDelegate();
+            return drawable != null && drawable.setLevel(level);
+        }
+
+        @Override
+        public boolean isStateful() {
+            Drawable drawable = getDelegate();
+            return drawable != null && drawable.isStateful();
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return getSettingsIconSize();
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return getSettingsIconSize();
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            Drawable drawable = getDelegate();
+            if (drawable != null) drawable.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            Drawable drawable = getDelegate();
+            if (drawable != null) drawable.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            Drawable drawable = getDelegate();
+            return drawable == null ? PixelFormat.TRANSPARENT : drawable.getOpacity();
+        }
+    }
+
     /**
      * Shows the selected splash in the activity's first rendered frame.
      *
-     * <p>The host splash continues running behind this independent overlay so its completion
-     * callbacks and offline startup behavior remain unchanged.</p>
+     * <p>When the system-splash preference is enabled, the selected animation is already owned by
+     * the Android 12 starting window and this overlay is deliberately skipped.</p>
      */
     public static void applySplashAnimation(Activity activity) {
-        if (activity == null) return;
+        applySplashAnimation(activity, false);
+    }
+
+    /**
+     * Applies the YouTube splash animation style to the custom branding overlay.
+     *
+     * <p>The style preference belongs to YouTube's splash patch and is intentionally not used by
+     * YouTube Music. Music keeps its custom branding animation regardless of that preference.</p>
+     */
+    public static void applyYouTubeSplashAnimation(Activity activity) {
+        applySplashAnimation(activity, true);
+    }
+
+    private static void applySplashAnimation(Activity activity, boolean useYouTubeSplashStyle) {
+        if (activity == null
+                || activity.isFinishing()
+                || activity.isDestroyed()
+                || (useYouTubeSplashStyle && isSplashAnimationDisabled())
+                || (!useYouTubeSplashStyle && isMusicSplashAnimationDisabled())) {
+            return;
+        }
 
         try {
             String selectedIcon = SharedYouTubeSettings.CUSTOM_BRANDING_ICON.get();
             if ("original".equals(selectedIcon)) return;
 
-            int identifier = ResourceUtils.getIdentifier(
-                    SPLASH_RESOURCE_PREFIX + selectedIcon,
-                    ResourceType.DRAWABLE,
-                    activity);
-            if (identifier == 0) return;
+            if (getSplashResourceIdentifier(activity, selectedIcon) == 0) return;
 
-            Drawable drawable = activity.getResources().getDrawable(identifier);
-            showSplashOverlay(activity, drawable, selectedIcon);
+            // The persisted platform theme supplies this same drawable before application code
+            // starts. On the first launch after upgrading from the broken implementation, retain
+            // the controllable overlay once because the native theme could only be prepared after
+            // Android had already created that launch's starting window.
+            if (isSystemSplashEnabled(activity) && systemSplashThemePreparedBeforeLaunch) return;
+
+            Runnable showOverlay = () -> {
+                int identifier = getSplashResourceIdentifier(activity, selectedIcon);
+                if (identifier == 0) return;
+
+                Drawable drawable = activity.getResources().getDrawable(identifier);
+                showSplashOverlay(activity, drawable, selectedIcon, useYouTubeSplashStyle);
+            };
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                // Android 11 and earlier do not expose a splash exit callback. The hook is inserted
+                // before the host onCreate body, so attach the overlay now and include it in the
+                // host's first frame instead of waiting for a posted callback.
+                showOverlay.run();
+                return;
+            }
+
+            try {
+                // The transferred system splash is above the activity decor. Add our overlay
+                // during its exit callback, then remove it in the same handoff so no stock icon
+                // or empty frame can appear between the two splash implementations.
+                SplashScreenBridge.installExitHandoff(activity, showOverlay);
+            } catch (Exception ignored) {
+                // The posted overlay below remains the fallback if no splash was transferred.
+            }
+
+            // Warm launches may not receive a system splash exit callback. Posting also lets
+            // YouTube publish its forced appearance before the initial background is resolved.
+            activity.getWindow().getDecorView().post(showOverlay);
         } catch (Exception ignored) {
             // Keep the stock host splash if a generated resource is unavailable.
         }
     }
 
+    /** Keeps Android 12 splash-screen classes out of the verifier path on older devices. */
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    private static final class SplashScreenBridge {
+        private SplashScreenBridge() {
+        }
+
+        private static void installExitHandoff(Activity activity, Runnable showOverlay) {
+            activity.getSplashScreen().setOnExitAnimationListener(splashScreenView -> {
+                try {
+                    showOverlay.run();
+                } finally {
+                    splashScreenView.remove();
+                }
+            });
+        }
+
+        private static void resetTheme(Activity activity) {
+            setTheme(activity, Resources.ID_NULL);
+        }
+
+        private static void setTheme(Activity activity, int themeId) {
+            activity.getSplashScreen().setSplashScreenTheme(themeId);
+        }
+
+    }
+
+    /**
+     * Returns whether the selected custom splash can be rendered by Android 12's starting window.
+     *
+     * <p>The launcher alias is selected before application code starts, so this method is shared
+     * by alias switching and the runtime overlay guard. If the selected branding has no splash
+     * drawable, the controllable overlay remains the safe fallback.</p>
+     */
+    public static boolean isSystemSplashEnabled(Context context) {
+        try {
+            if (context == null
+                    || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                    || !SharedYouTubeSettings.CUSTOM_BRANDING_USE_AS_SYSTEM_SPLASH.get()
+                    || isSplashAnimationDisabled()
+                    || isMusicSplashAnimationDisabled()) {
+                return false;
+            }
+
+            String selectedIcon = SharedYouTubeSettings.CUSTOM_BRANDING_ICON.get();
+            return !selectedIcon.isEmpty()
+                    && !"original".equals(selectedIcon)
+                    && getSplashResourceIdentifier(context, selectedIcon) != 0
+                    && ResourceUtils.getIdentifier(
+                            SYSTEM_SPLASH_STYLE_PREFIX + selectedIcon,
+                            ResourceType.STYLE,
+                            context) != 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Resolves a generated theme-specific splash when one exists, falling back to the base splash.
+     * The lookup uses YouTube's resolved appearance rather than Android's night qualifier because
+     * YouTube can force light or dark mode independently of the device configuration.
+     */
+    private static int getSplashResourceIdentifier(Context context, String selectedIcon) {
+        String theme = BaseThemeUtils.isDarkModeEnabled() ? "dark" : "light";
+        int themedIdentifier = ResourceUtils.getIdentifier(
+                SPLASH_RESOURCE_PREFIX + selectedIcon + "_" + theme,
+                ResourceType.DRAWABLE,
+                context);
+        if (themedIdentifier != 0) return themedIdentifier;
+
+        return ResourceUtils.getIdentifier(
+                SPLASH_RESOURCE_PREFIX + selectedIcon,
+                ResourceType.DRAWABLE,
+                context);
+    }
+
     private static void showSplashOverlay(
-            Activity activity, Drawable drawable, String selectedIcon) {
+            Activity activity,
+            Drawable drawable,
+            String selectedIcon,
+            boolean useYouTubeSplashStyle) {
         try {
             ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
             if (decor.findViewWithTag(SPLASH_OVERLAY_TAG) != null) return;
@@ -489,10 +962,18 @@ public final class CustomBrandingPatch {
             FrameLayout overlay = new FrameLayout(activity);
             overlay.setTag(SPLASH_OVERLAY_TAG);
             overlay.setClickable(true);
-            overlay.setBackgroundColor(BaseThemeUtils.getAppBackgroundColor());
+            int[] backgroundColor = {BaseThemeUtils.getAppBackgroundColor()};
+            overlay.setBackgroundColor(backgroundColor[0]);
 
             ImageView image = new ImageView(activity);
             image.setImageDrawable(drawable);
+            float splashScale = SharedYouTubeSettings.CUSTOM_BRANDING_SPLASH_ANIMATION_SIZE.get()
+                    / 100.0f;
+            image.setScaleX(splashScale);
+            image.setScaleY(splashScale);
+            if (useYouTubeSplashStyle && isSplashAnimationMonochrome()) {
+                image.setColorFilter(MONOCHROME_SPLASH_FILTER);
+            }
             image.setScaleType(ImageView.ScaleType.CENTER);
             overlay.addView(image, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -502,32 +983,63 @@ public final class CustomBrandingPatch {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
 
-            long duration = selectedIcon.startsWith("revancify") ? 1500L : 1000L;
-            if (drawable instanceof Animatable) {
-                ((Animatable) drawable).start();
-            } else {
-                AnimationSet animation = new AnimationSet(true);
-                animation.setDuration(duration);
-                animation.addAnimation(new AlphaAnimation(0.0f, 1.0f));
-                animation.addAnimation(new ScaleAnimation(
-                        0.8f,
-                        1.0f,
-                        0.8f,
-                        1.0f,
-                        Animation.RELATIVE_TO_SELF,
-                        0.5f,
-                        Animation.RELATIVE_TO_SELF,
-                        0.5f));
-                image.startAnimation(animation);
-            }
+            // YouTube can publish its forced appearance after the first Activity callback. Keep
+            // the splash aligned with that state instead of falling back to the device dark mode.
+            Runnable syncBackground = new Runnable() {
+                @Override
+                public void run() {
+                    if (overlay.getParent() == null) return;
 
-            // Removal is time-based instead of network/content-based. This both holds back content
-            // that becomes ready early and releases offline startup after the animation completes.
-            overlay.postDelayed(() -> {
+                    int resolvedColor = BaseThemeUtils.getAppBackgroundColor();
+                    if (backgroundColor[0] != resolvedColor) {
+                        backgroundColor[0] = resolvedColor;
+                        overlay.setBackgroundColor(resolvedColor);
+                    }
+                    overlay.postOnAnimation(this);
+                }
+            };
+            overlay.postOnAnimation(syncBackground);
+
+            Runnable removeOverlay = () -> {
+                overlay.removeCallbacks(syncBackground);
                 if (overlay.getParent() instanceof ViewGroup parent) {
                     parent.removeView(overlay);
                 }
-            }, duration);
+            };
+
+            if (drawable instanceof AnimatedVectorDrawable animatedVector) {
+                // Custom AVD durations are not known at compile time. Keep the overlay visible
+                // until Android reports completion, with a timeout for malformed animations.
+                animatedVector.registerAnimationCallback(new Animatable2.AnimationCallback() {
+                    @Override
+                    public void onAnimationEnd(Drawable ignored) {
+                        overlay.post(removeOverlay);
+                    }
+                });
+                animatedVector.start();
+                overlay.postDelayed(removeOverlay, 5000L);
+            } else {
+                long duration = selectedIcon.startsWith("revancify") ? 1500L : 1000L;
+                if (drawable instanceof Animatable) {
+                    ((Animatable) drawable).start();
+                } else {
+                    AnimationSet animation = new AnimationSet(true);
+                    animation.setDuration(duration);
+                    animation.addAnimation(new AlphaAnimation(0.0f, 1.0f));
+                    animation.addAnimation(new ScaleAnimation(
+                            0.8f,
+                            1.0f,
+                            0.8f,
+                            1.0f,
+                            Animation.RELATIVE_TO_SELF,
+                            0.5f,
+                            Animation.RELATIVE_TO_SELF,
+                            0.5f));
+                    image.startAnimation(animation);
+                }
+                // Resources without AVD callbacks release offline startup after a fixed duration.
+                overlay.postDelayed(removeOverlay, duration);
+            }
         } catch (Exception ignored) {
             // Keep the stock splash if the activity window cannot host the overlay.
         }
@@ -581,6 +1093,38 @@ public final class CustomBrandingPatch {
             return Integer.parseInt(value);
         } catch (NumberFormatException ignored) {
             return 1;
+        }
+    }
+
+    /**
+     * Reads the existing YouTube splash-style preference without loading YouTube-only settings.
+     * The branding runtime is shared with YouTube Music, where that settings class is absent.
+     */
+    private static String getSplashAnimationStyle() {
+        try {
+            return Setting.preferences.getString(
+                    SPLASH_ANIMATION_STYLE_KEY, SPLASH_ANIMATION_STYLE_DEFAULT);
+        } catch (Exception ignored) {
+            return SPLASH_ANIMATION_STYLE_DEFAULT;
+        }
+    }
+
+    private static boolean isSplashAnimationDisabled() {
+        return SPLASH_ANIMATION_STYLE_DISABLED.equalsIgnoreCase(getSplashAnimationStyle());
+    }
+
+    private static boolean isSplashAnimationMonochrome() {
+        String style = getSplashAnimationStyle();
+        return SPLASH_ANIMATION_STYLE_60_BLACK_AND_WHITE.equalsIgnoreCase(style)
+                || SPLASH_ANIMATION_STYLE_30_BLACK_AND_WHITE.equalsIgnoreCase(style);
+    }
+
+    /** Returns whether Music's existing Cairo animation toggle also disables the custom overlay. */
+    private static boolean isMusicSplashAnimationDisabled() {
+        try {
+            return Setting.preferences.getBoolean(DISABLE_CAIRO_SPLASH_ANIMATION_KEY, false);
+        } catch (Exception ignored) {
+            return false;
         }
     }
 }

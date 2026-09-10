@@ -79,6 +79,21 @@ import app.morphe.extension.youtube.utils.VideoUtils;
 public final class VideoInformation {
     public interface ExoPlayerImpl {
         void patch_setPlaybackParameters(float speed, float pitch);
+        void patch_setPlayWhenReady(boolean playing);
+    }
+
+    public interface PlaybackSpeedMenuInterface {
+        void patch_setSpeed(float speed);
+    }
+
+    private static volatile PlaybackSpeedMenuInterface currentPlaybackSpeedMenu;
+
+    public static void setPlaybackSpeedMenu(PlaybackSpeedMenuInterface menu) {
+        currentPlaybackSpeedMenu = menu;
+    }
+
+    public static PlaybackSpeedMenuInterface getPlaybackSpeedMenu() {
+        return currentPlaybackSpeedMenu;
     }
 
     private static final float DEFAULT_YOUTUBE_PLAYBACK_SPEED = 1.0f;
@@ -332,6 +347,20 @@ public final class VideoInformation {
         }
     }
 
+    /**
+     * Injection point used by the YouTube 21.04 player-response path.
+     */
+    public static void setChannelId(@Nullable String newlyLoadedChannelId) {
+        channelId = newlyLoadedChannelId != null ? newlyLoadedChannelId : "";
+    }
+
+    /**
+     * Injection point used by the YouTube 21.04 player-response path.
+     */
+    public static void setChannelName(@Nullable String newlyLoadedChannelName) {
+        channelName = newlyLoadedChannelName != null ? newlyLoadedChannelName : "";
+    }
+
     public static boolean isPlayerInitialized() {
         return playerInitialized;
     }
@@ -377,6 +406,15 @@ public final class VideoInformation {
                         newlyLoadedLiveStreamValue +
                         "'"
         );
+    }
+
+    /**
+     * Injection point used by the YouTube 21.04 player seekbar path.
+     *
+     * @param newlyLoadedVideoLength length of the current video in milliseconds
+     */
+    public static void setVideoLength(final long newlyLoadedVideoLength) {
+        videoLength = newlyLoadedVideoLength;
     }
 
     /**
@@ -673,6 +711,30 @@ public final class VideoInformation {
     }
 
     /**
+     * Changes whether the current ExoPlayer is ready to play.
+     *
+     * @param playing whether the player should be ready to play
+     * @return true if a playback-control method was invoked
+     */
+    public static boolean setPlayerPlaying(boolean playing) {
+        Utils.verifyOnMainThread();
+
+        ExoPlayerImpl exoPlayerImpl = exoPlayerImplRef.get();
+        if (exoPlayerImpl == null) {
+            Logger.printDebug(() -> "Cannot change playback state, exoPlayerImpl is null");
+            return false;
+        }
+
+        try {
+            exoPlayerImpl.patch_setPlayWhenReady(playing);
+            return true;
+        } catch (Exception e) {
+            Logger.printDebug(() -> "Failed to change playback state: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
      * Tries to read the current playback speed from the app's player (playbackSpeedClass / timeUpdateReceiver).
      * Used by VOT to sync translation speed when the user changes speed via any UI (not only the menu we hook).
      *
@@ -840,6 +902,13 @@ public final class VideoInformation {
      */
     public static void overridePlaybackSpeed(float speedOverride) {
         Logger.printDebug(() -> "Overriding playback speed to: " + speedOverride);
+        if (currentPlaybackSpeedMenu != null) {
+            try {
+                currentPlaybackSpeedMenu.patch_setSpeed(speedOverride);
+            } catch (Throwable t) {
+                Logger.printException(() -> "Failed to set playback speed on menu", t);
+            }
+        }
         if (playbackSpeed != speedOverride) {
             playbackSpeed = speedOverride;
             if (!Settings.PLAYBACK_AUDIO_TIME_STRETCHING.get()) {

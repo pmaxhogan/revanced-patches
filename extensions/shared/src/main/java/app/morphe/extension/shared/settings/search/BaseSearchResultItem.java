@@ -180,6 +180,7 @@ public abstract class BaseSearchResultItem {
     public static class PreferenceSearchItem extends BaseSearchResultItem {
         public final Preference preference;
         final String searchableText;
+        final String semanticSearchText;
         final CharSequence originalTitle;
         final CharSequence originalSummary;
         final CharSequence originalSummaryOn;
@@ -212,6 +213,7 @@ public abstract class BaseSearchResultItem {
 
             // Build searchable text.
             this.searchableText = buildSearchableText(pref);
+            this.semanticSearchText = buildSemanticSearchText();
         }
 
         private static class FieldInitializationResult {
@@ -252,26 +254,25 @@ public abstract class BaseSearchResultItem {
             return result;
         }
 
+        /**
+         * Builds the searchable text from preference content while excluding its internal key.
+         */
         private String buildSearchableText(Preference pref) {
             StringBuilder searchBuilder = new StringBuilder();
-            String key = pref.getKey();
-            String normalizedKey = "";
-            if (key != null) {
-                // Normalize preference key by removing the common "revanced_" prefix
-                // so that users can search by the meaningful part only.
-                normalizedKey = key.startsWith("revanced_")
-                        ? key.substring("revanced_".length())
-                        : key;
-            }
-            appendText(searchBuilder, normalizedKey);
             appendText(searchBuilder, originalTitle);
             appendText(searchBuilder, originalSummary);
 
             // Add type-specific searchable content.
-            if (pref instanceof ListPreference) {
+            if (pref instanceof ListPreference listPref) {
                 if (originalEntries != null) {
                     for (CharSequence entry : originalEntries) {
                         appendText(searchBuilder, entry);
+                    }
+                }
+                CharSequence[] entryValues = listPref.getEntryValues();
+                if (entryValues != null) {
+                    for (CharSequence entryValue : entryValues) {
+                        appendText(searchBuilder, entryValue);
                     }
                 }
             } else if (pref instanceof SwitchPreference) {
@@ -284,6 +285,22 @@ public abstract class BaseSearchResultItem {
             // Include navigation path in searchable text.
             appendText(searchBuilder, navigationPath);
 
+            return searchBuilder.toString();
+        }
+
+        /** Builds semantic-search input from visible labels without saved or internal values. */
+        private String buildSemanticSearchText() {
+            StringBuilder searchBuilder = new StringBuilder();
+            appendText(searchBuilder, originalTitle);
+            appendText(searchBuilder, originalSummary);
+            appendText(searchBuilder, originalSummaryOn);
+            appendText(searchBuilder, originalSummaryOff);
+            if (originalEntries != null) {
+                for (CharSequence entry : originalEntries) {
+                    appendText(searchBuilder, entry);
+                }
+            }
+            appendText(searchBuilder, navigationPath);
             return searchBuilder.toString();
         }
 
@@ -340,6 +357,14 @@ public abstract class BaseSearchResultItem {
         @Override
         boolean matchesQuery(String query) {
             return searchableText.contains(Utils.normalizeTextToLowercase(query));
+        }
+
+        /**
+         * Returns normalized, user-visible preference content for semantic fallback matching.
+         * Internal preference keys and saved values are intentionally excluded.
+         */
+        public String getSemanticSearchText() {
+            return semanticSearchText;
         }
 
         /**

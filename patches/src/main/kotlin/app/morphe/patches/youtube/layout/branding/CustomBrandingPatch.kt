@@ -63,15 +63,17 @@ import app.morphe.patches.shared.layout.branding.BrandingIcon
 import app.morphe.patches.shared.layout.branding.CustomBrandingConfig
 import app.morphe.patches.shared.layout.branding.NotificationBuilderFingerprint
 import app.morphe.patches.shared.layout.branding.NotificationIconFingerprint
+import app.morphe.patches.shared.layout.branding.addCustomBrandingSystemSplashThemeStyles
 import app.morphe.patches.shared.layout.branding.applyCustomBranding
 import app.morphe.patches.shared.layout.branding.customBrandingIconOptionDescription
 import app.morphe.patches.shared.layout.branding.installYouTubeRvxSettingsIconLayout
 import app.morphe.patches.shared.mapping.ResourceType
 import app.morphe.patches.shared.mapping.resourceLiteral
 import app.morphe.patches.shared.mainactivity.injectOnCreateMethodCall
+import app.morphe.patches.youtube.general.splashanimation.splashScreenAnimationBytecodePatch
+import app.morphe.patches.youtube.general.toolbar.attributeResolverFingerprint
 import app.morphe.patches.youtube.utils.compatibility.Constants.COMPATIBILITY_YOUTUBE
 import app.morphe.patches.youtube.utils.extension.sharedExtensionPatch
-import app.morphe.patches.youtube.general.toolbar.attributeResolverFingerprint
 import app.morphe.patches.youtube.utils.mainactivity.mainActivityResolvePatch
 import app.morphe.patches.youtube.utils.patch.PatchList.CUSTOM_BRANDING_FOR_YOUTUBE
 import app.morphe.patches.youtube.utils.playservice.is_20_00_or_greater
@@ -142,6 +144,7 @@ private val brandingConfig = CustomBrandingConfig(
     copyAliasIntentFilters = true,
     dynamicHeaderResourceNames = listOf("yt_wordmark_header", "yt_premium_wordmark_header"),
     dynamicSplashResourceName = "product_logo_youtube_color_144",
+    themedSplashIconKeys = setOf("squid_game"),
 )
 
 private val applicationNameFingerprint = Fingerprint(
@@ -152,8 +155,13 @@ private val customBrandingBytecodePatch = bytecodePatch {
     dependsOn(sharedExtensionPatch, mainActivityResolvePatch, sharedResourceIdPatch)
 
     execute {
+        injectOnCreateMethodCall(
+            CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR,
+            "applyYouTubeSplashAnimation",
+        )
+        // Calls are inserted at index zero, so the launcher and persisted splash theme must be
+        // initialized first in the final onCreate order before the overlay guard is evaluated.
         injectOnCreateMethodCall(CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR, "setBranding")
-        injectOnCreateMethodCall(CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR, "applySplashAnimation")
 
         // application_name is used by YouTube for client metadata and several in-app labels. The
         // manifest aliases still provide the launcher fallback, while this hook makes the chosen
@@ -256,6 +264,7 @@ val customBrandingPatch = resourcePatch(
     dependsOn(
         settingsPatch,
         customBrandingBytecodePatch,
+        splashScreenAnimationBytecodePatch,
     )
 
     execute {
@@ -266,8 +275,15 @@ val customBrandingPatch = resourcePatch(
         )
         installYouTubeRvxSettingsIconLayout()
         addPreference(
-            arrayOf("SETTINGS: CUSTOM_BRANDING"),
+            arrayOf(
+                "SETTINGS: THEME_SETTINGS",
+                "SETTINGS: CUSTOM_BRANDING",
+            ),
             CUSTOM_BRANDING_FOR_YOUTUBE,
         )
+    }
+
+    finalize {
+        addCustomBrandingSystemSplashThemeStyles()
     }
 }

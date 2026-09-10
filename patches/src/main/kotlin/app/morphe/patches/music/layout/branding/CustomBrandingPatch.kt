@@ -57,6 +57,7 @@ import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.folderOption
 import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.patch.stringOption
+import app.morphe.patches.music.general.splash.cairoSplashAnimationPatch
 import app.morphe.patches.music.utils.compatibility.Constants.COMPATIBILITY_YOUTUBE_MUSIC
 import app.morphe.patches.music.utils.extension.Constants.GENERAL_CLASS_DESCRIPTOR
 import app.morphe.patches.music.utils.extension.sharedExtensionPatch
@@ -80,10 +81,12 @@ import app.morphe.patches.shared.layout.branding.BrandingIcon
 import app.morphe.patches.shared.layout.branding.CustomBrandingConfig
 import app.morphe.patches.shared.layout.branding.NotificationBuilderFingerprint
 import app.morphe.patches.shared.layout.branding.NotificationIconFingerprint
+import app.morphe.patches.shared.layout.branding.addCustomBrandingSystemSplashThemeStyles
 import app.morphe.patches.shared.layout.branding.applyCustomBranding
 import app.morphe.patches.shared.layout.branding.customBrandingIconOptionDescription
 import app.morphe.patches.shared.layout.branding.installDynamicRvxSettingsIcon
 import app.morphe.patches.shared.mainactivity.injectOnCreateMethodCall
+import app.morphe.patches.shared.misc.settings.SETTINGS_NAME_PREFERENCE_KEY
 import app.morphe.util.REGISTER_TEMPLATE_REPLACEMENT
 import app.morphe.util.Utils.printWarn
 import app.morphe.util.replaceLiteralInstructionCall
@@ -133,6 +136,7 @@ private val brandingConfig = CustomBrandingConfig(
     mainActivityName = "com.google.android.apps.youtube.music.activities.MusicActivity",
     activityAliasNameWithIntents = "com.google.android.apps.youtube.music.activities.MusicActivity",
     copyAliasIntentFilters = false,
+    useSplashlessLauncherActivity = false,
     dynamicHeaderResourceNames = listOf("action_bar_logo", "logo_music", "ytm_logo"),
     dynamicHeaderUsesThemes = false,
     dynamicSplashResourceName = "record",
@@ -176,11 +180,13 @@ private val customBrandingBytecodePatch = bytecodePatch {
     dependsOn(sharedExtensionPatch, mainActivityResolvePatch)
 
     execute {
-        injectOnCreateMethodCall(CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR, "setBranding")
         injectOnCreateMethodCall(
             CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR,
             "applySplashAnimation",
         )
+        // Calls are inserted at index zero, so the launcher and persisted splash theme must be
+        // initialized first in the final onCreate order before the overlay guard is evaluated.
+        injectOnCreateMethodCall(CUSTOM_BRANDING_EXTENSION_CLASS_DESCRIPTOR, "setBranding")
 
         if (is_7_27_or_greater) {
             NotificationBuilderFingerprint.let {
@@ -242,6 +248,7 @@ val customBrandingPatch = resourcePatch(
         settingsPatch,
         customBrandingBytecodePatch,
         changeHeaderBytecodePatch,
+        cairoSplashAnimationPatch,
     )
 
     execute {
@@ -255,15 +262,36 @@ val customBrandingPatch = resourcePatch(
             category = CategoryType.GENERAL.value,
             key = "morphe_custom_branding_name",
             dependencyKey = "",
-            setSummary = true,
+            setSummary = false,
+        )
+        addCustomPreference(
+            category = CategoryType.GENERAL.value,
+            key = SETTINGS_NAME_PREFERENCE_KEY,
+            tag = "app.morphe.extension.shared.settings.preference.SettingsNamePreference",
+            setSummary = false,
+            entriesArrayKey = "morphe_settings_name_entries",
+            entryValuesArrayKey = "morphe_settings_name_entry_values",
         )
         addCustomPreference(
             category = CategoryType.GENERAL.value,
             key = "morphe_custom_branding_icon",
             tag = "app.morphe.extension.shared.settings.preference.IconListPreference",
+            setSummary = false,
             entriesArrayKey = "morphe_custom_branding_icon_entries",
             entryValuesArrayKey = "morphe_custom_branding_icon_entry_values",
         )
+        addCustomPreference(
+            category = CategoryType.GENERAL.value,
+            key = "morphe_custom_branding_splash_animation_size",
+            tag = "app.morphe.extension.shared.settings.preference.SliderPreference",
+        )
+        // addSwitchPreference(
+        //     category = CategoryType.GENERAL.value,
+        //     key = "morphe_custom_branding_use_as_system_splash",
+        //     defaultValue = "false",
+        //     dependencyKey = "",
+        //     setSummary = true,
+        // )
         if (hasRvxSettingsPreference) {
             installDynamicRvxSettingsIcon("revanced_settings_icon")
             addSwitchPreference(
@@ -278,11 +306,18 @@ val customBrandingPatch = resourcePatch(
             CategoryType.GENERAL.value,
             listOf(
                 "morphe_custom_branding_name",
+                "morphe_settings_name",
                 "morphe_custom_branding_icon",
+                "morphe_custom_branding_splash_animation_size",
+                "morphe_custom_branding_use_as_system_splash",
                 "morphe_custom_branding_apply_to_rvx_settings",
             ),
         )
 
         updatePatchStatus(CUSTOM_BRANDING_FOR_YOUTUBE_MUSIC)
+    }
+
+    finalize {
+        addCustomBrandingSystemSplashThemeStyles()
     }
 }

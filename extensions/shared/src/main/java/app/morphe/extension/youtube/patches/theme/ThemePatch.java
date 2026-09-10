@@ -38,20 +38,39 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
+/*
+ * Portions of this file are ported from Morphe:
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/morphe-patches/pull/2524
+ *
+ * Original hard forked code:
+ * https://github.com/ReVanced/revanced-patches/commit/724e6d61b2ecd868c1a9a37d465a688e83a74799
+ *
+ * See the included NOTICE file for GPLv3 Section 7 terms that apply to Morphe contributions.
+ */
+
 package app.morphe.extension.youtube.patches.theme;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.loader.ResourcesLoader;
 import android.content.res.loader.ResourcesProvider;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.util.Base64;
+import android.view.View;
+import android.view.ViewStub;
+import android.view.ViewTreeObserver;
+import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
@@ -62,9 +81,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.zip.GZIPInputStream;
 
+import app.morphe.extension.shared.patches.CustomBrandingPatch;
 import app.morphe.extension.shared.utils.BaseThemeUtils;
 import app.morphe.extension.shared.utils.Logger;
+import app.morphe.extension.shared.utils.ResourceType;
 import app.morphe.extension.shared.utils.ResourceUtils;
+import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.settings.Settings;
 
 @SuppressWarnings({"unused", "deprecation"})
@@ -73,21 +95,34 @@ public final class ThemePatch {
     public static final String DEFAULT_LIGHT_THEME = "white";
     public static final String DEFAULT_DARK_THEME_CUSTOM_COLOR = "#FF000000";
     public static final String DEFAULT_LIGHT_THEME_CUSTOM_COLOR = "#FFFFFFFF";
+    public static final String DEFAULT_NOTIFICATION_DOT_COLOR = "#FFFF0000";
 
     private static final String RUNTIME_LIGHT_THEME_COLOR = "morphe_runtime_light_theme_color";
+    private static final String PATCH_OPTION_DARK_THEME_COLOR = "morphe_patch_option_dark_theme_color";
+    private static final String PATCH_OPTION_LIGHT_THEME_COLOR = "morphe_patch_option_light_theme_color";
+    private static final String SPLASH_THEME_DARK_PREFIX = "morphe_theme_splash_dark_";
+    private static final String SPLASH_THEME_LIGHT_PREFIX = "morphe_theme_splash_light_";
+    private static final String SPLASH_THEME_NO_ICON_SUFFIX = "_no_icon";
     private static final int PRECOMPILED_THEME_MCC = 801;
+    private static final int RUNTIME_THEME_MCC = 802;
+    private static final int RUNTIME_THEME_CHANGE_FOREGROUND_MNC = 1;
+    private static final int RUNTIME_THEME_DARK_BACKGROUND_MNC = 2;
+    private static final int RUNTIME_THEME_LIGHT_BACKGROUND_MNC = 3;
     private static final String[] PRECOMPILED_DARK_THEME_KEYS = {
             "stock", "amoled_black", "material_you_neutral", "material_you_primary",
             "material_you_secondary", "material_you_tertiary", "modern_youtube",
             "classic_youtube", "catppuccin_mocha", "dark_pink", "dark_blue", "dark_green",
-            "dark_yellow", "dark_orange", "dark_red",
+            "dark_yellow", "dark_orange", "dark_red", "patch_option",
     };
     private static final String[] PRECOMPILED_LIGHT_THEME_KEYS = {
             "white", "material_you_neutral", "material_you_primary", "material_you_secondary",
             "material_you_tertiary", "catppuccin_latte", "light_pink", "light_blue",
             "light_green", "light_yellow", "light_orange", "light_red", "pale_blue",
-            "pale_green", "pale_yellow",
+            "pale_green", "pale_yellow", "patch_option",
     };
+    /** Offset between the full, dark-background-only, and light-background-only variants. */
+    private static final int PRECOMPILED_THEME_PAIR_COUNT =
+            PRECOMPILED_DARK_THEME_KEYS.length * PRECOMPILED_LIGHT_THEME_KEYS.length;
     private static final int STOCK_DARK_THEME_MAIN_COLOR_INDEX = 5;
     private static final int[] STOCK_DARK_THEME_COLORS = {
             0xFF282828, 0xFF212121, 0xF2212121, 0xFA212121, 0xFF181818,
@@ -98,18 +133,23 @@ public final class ThemePatch {
     private static final int STOCK_DARK_THEME_STATUS_BAR_COLOR_INDEX = 7;
 
     /**
-     * Applies both palettes before YouTube inflates its first layout. Android 8–10 select
+     * Applies both palettes before YouTube inflates its first layout, then persists the next
+     * starting-window theme after the host reports its forced appearance. Android 8–10 select
      * precompiled resource configurations, while Android 11+ replaces the stable resources.
      */
     public static void setTheme(Activity activity) {
         setTheme((Context) activity);
+        persistSplashScreenThemeWhenResolved(activity);
     }
 
     /**
-     * Installs the resource overlay from Application.onCreate, before Android creates the first
-     * Activity and resolves its launch window and theme resources.
+     * Installs the resource overlay from Application.onCreate. The overlay is ready before the
+     * Activity inflates its first layout; Android 12+ may already have created the starting window,
+     * so the Activity overload also selects a stable splash theme with the chosen preset color.
      */
     public static void setTheme(Context context) {
+        BaseThemeUtils.setChangeForegroundColor(Settings.THEME_COLOR_CHANGE_FOREGROUND.get());
+
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             try {
                 PrecompiledResourcePalette.install(context);
@@ -128,6 +168,125 @@ public final class ThemePatch {
             RuntimeResourceOverlay.install(context, darkColors, lightColor, lightOpacity70Color);
         } catch (Exception ex) {
             Logger.printException(() -> "Failed to install runtime YouTube theme", ex);
+        }
+    }
+
+    /**
+     * Applies the selected palette to the separate Activity used by RVX settings. Runtime resource
+     * loaders belong to a Resources instance, so a settings Activity created after YouTube's main
+     * Activity must receive the loader before its theme and views are inflated.
+     */
+    public static void applyToSettingsActivity(Activity activity) {
+        if (ResourceUtils.getIdentifier(RUNTIME_LIGHT_THEME_COLOR, ResourceType.COLOR, activity) == 0) {
+            // The Theme patch was not included, so the runtime resource does not exist.
+            return;
+        }
+        setTheme((Context) activity);
+    }
+
+    /**
+     * Selects the palette for YouTube's resolved appearance. YouTube can force light or dark mode
+     * independently of Android's night configuration, so resource foregrounds must follow the
+     * host theme result instead of a {@code night} qualifier.
+     *
+     * @param value YouTube's resolved light/dark appearance enum.
+     */
+    public static void onAppThemeResolved(Enum<?> value) {
+        BaseThemeUtils.updateLightDarkModeStatus(value);
+        final boolean dark = BaseThemeUtils.isDarkModeEnabled();
+        if (Settings.THEME_LAST_USED_DARK_MODE.get() != dark) {
+            Settings.THEME_LAST_USED_DARK_MODE.save(dark);
+        }
+        Context context = Utils.getContext();
+        if (context == null) return;
+
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                PrecompiledResourcePalette.install(context);
+            } else {
+                RuntimeResourceOverlay.select(context);
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "Failed to select resolved YouTube theme", ex);
+        }
+    }
+
+    /**
+     * Persists the selected preset as Android's starting-window theme for the next launch. The
+     * style contains a concrete color because Android resolves it outside the app process, before
+     * the runtime resource overlay exists. The API 31 reference is isolated so this class remains
+     * loadable on older Android versions.
+     */
+    private static void persistSplashScreenThemeWhenResolved(Activity activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return;
+        }
+
+        // Android draws the current starting window before the process begins. Persist the next
+        // one only after YouTube reports its forced appearance, which may differ from device mode.
+        View decor = activity.getWindow().getDecorView();
+        decor.post(new Runnable() {
+            private int remainingFrames = 120;
+
+            @Override
+            public void run() {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                if (BaseThemeUtils.isAppThemeResolved()) {
+                    applySplashScreenTheme(activity);
+                } else if (--remainingFrames > 0) {
+                    decor.postOnAnimation(this);
+                }
+            }
+        });
+    }
+
+    private static void applySplashScreenTheme(Activity activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+        if (CustomBrandingPatch.isSystemSplashEnabled(activity)) {
+            CustomBrandingPatch.updateSystemSplashTheme(activity);
+            return;
+        }
+
+        try {
+            final boolean dark = BaseThemeUtils.isDarkModeEnabled();
+            final String themePrefix = dark
+                    ? SPLASH_THEME_DARK_PREFIX
+                    : SPLASH_THEME_LIGHT_PREFIX;
+            final String fallbackTheme = dark ? "stock" : "white";
+            final String selectedTheme = dark
+                    ? Settings.DARK_THEME.get()
+                    : Settings.LIGHT_THEME.get();
+            final boolean useCustomSplashAnimation =
+                    !"original".equals(Settings.CUSTOM_BRANDING_ICON.get())
+                            && !isSplashAnimationDisabled();
+            final String splashIconSuffix = useCustomSplashAnimation
+                    ? SPLASH_THEME_NO_ICON_SUFFIX
+                    : "";
+            String themeName = themePrefix + selectedTheme + splashIconSuffix;
+            int themeId = ResourceUtils.getIdentifier(themeName, ResourceType.STYLE, activity);
+            if (themeId == 0) {
+                themeName = themePrefix + fallbackTheme + splashIconSuffix;
+                themeId = ResourceUtils.getIdentifier(themeName, ResourceType.STYLE, activity);
+            }
+            if (themeId == 0) {
+                final String missingThemeName = themeName;
+                Logger.printDebug(() -> "Splash theme not found: " + missingThemeName);
+                return;
+            }
+            SplashScreenBridge.apply(activity, themeId);
+        } catch (Exception ex) {
+            Logger.printException(() -> "Failed to apply selected splash theme", ex);
+        }
+    }
+
+    /** Keeps Android 12 splash-screen classes out of the verifier path on older devices. */
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    private static final class SplashScreenBridge {
+        private SplashScreenBridge() {
+        }
+
+        private static void apply(Activity activity, int themeId) {
+            activity.getSplashScreen().setSplashScreenTheme(themeId);
         }
     }
 
@@ -184,9 +343,17 @@ public final class ThemePatch {
             case "dark_yellow" -> 0xFF282900;
             case "dark_orange" -> 0xFF291800;
             case "dark_red" -> 0xFF290000;
-            case "custom" -> ResourceUtils.getColor(Settings.DARK_THEME_CUSTOM_COLOR.get(), patchedColor);
+            case "custom" -> getCustomDarkThemeColor(patchedColor);
+            case "patch_option" -> ResourceUtils.getColor(PATCH_OPTION_DARK_THEME_COLOR, patchedColor);
             default -> patchedColor;
         };
+    }
+
+    /** Uses the patch-time color until the user explicitly chooses an in-app custom color. */
+    private static int getCustomDarkThemeColor(int fallback) {
+        return Settings.DARK_THEME_CUSTOM_COLOR.isSetToDefault()
+                ? ResourceUtils.getColor(PATCH_OPTION_DARK_THEME_COLOR, fallback)
+                : ResourceUtils.getColor(Settings.DARK_THEME_CUSTOM_COLOR.get(), fallback);
     }
 
     private static int getSelectedLightColor(Context context) {
@@ -207,9 +374,17 @@ public final class ThemePatch {
             case "pale_blue" -> 0xFFD4FFF8;
             case "pale_green" -> 0xFFD1FFCC;
             case "pale_yellow" -> 0xFFFFE9AA;
-            case "custom" -> ResourceUtils.getColor(Settings.LIGHT_THEME_CUSTOM_COLOR.get(), patchedColor);
+            case "custom" -> getCustomLightThemeColor(patchedColor);
+            case "patch_option" -> ResourceUtils.getColor(PATCH_OPTION_LIGHT_THEME_COLOR, patchedColor);
             default -> patchedColor;
         };
+    }
+
+    /** Uses the patch-time color until the user explicitly chooses an in-app custom color. */
+    private static int getCustomLightThemeColor(int fallback) {
+        return Settings.LIGHT_THEME_CUSTOM_COLOR.isSetToDefault()
+                ? ResourceUtils.getColor(PATCH_OPTION_LIGHT_THEME_COLOR, fallback)
+                : ResourceUtils.getColor(Settings.LIGHT_THEME_CUSTOM_COLOR.get(), fallback);
     }
 
     /** Keeps the translucent light overlay while applying the selected light-theme color. */
@@ -219,16 +394,157 @@ public final class ThemePatch {
     }
 
     /**
-     * Applies the translucent-status-bar setting only to YouTube's status-bar color result.
-     * Shared overlay resources retain their original alpha so player controls remain translucent.
+     * Applies the selected theme only to YouTube's status-bar fallback. The shared translucent
+     * resources remain stock because the player also uses them while controls are visible.
      */
     public static int getStatusBarColor(int color) {
-        if (!isDisableTranslucentStatusBar()) return color;
-        return Color.argb(0xFF, Color.red(color), Color.green(color), Color.blue(color));
+        int selectedColor = BaseThemeUtils.isDarkModeEnabled() && isStockDarkTheme()
+                ? color
+                : BaseThemeUtils.getAppBackgroundColor();
+        return Color.argb(
+                isDisableTranslucentStatusBar() ? 0xFF : Color.alpha(color),
+                Color.red(selectedColor),
+                Color.green(selectedColor),
+                Color.blue(selectedColor)
+        );
+    }
+
+    /**
+     * Injection point for a new-content indicator declared as a view stub. Material You uses the
+     * selected system palette instead of the app's red indicator.
+     */
+    public static void onNewContentIndicator(ViewStub stub) {
+        try {
+            stub.setOnInflateListener((inflatedStub, view) -> keepIndicatorColor(view));
+        } catch (Exception ex) {
+            Logger.printException(() -> "onNewContentIndicator failure", ex);
+        }
+    }
+
+    /**
+     * Injection point for a new-content indicator declared as a view of its own instead of a stub.
+     */
+    public static void onNewContentIndicator(View indicator) {
+        try {
+            keepIndicatorColor(indicator);
+        } catch (Exception ex) {
+            Logger.printException(() -> "onNewContentIndicator failure", ex);
+        }
+    }
+
+    private static void keepIndicatorColor(View view) {
+        keepIndicatorColor(view, getIndicatorColor(view.getContext()));
+    }
+
+    private static void keepIndicatorColor(View view, Integer color) {
+        if (color == null) {
+            return;
+        }
+
+        setIndicatorColor(view, color);
+
+        // YouTube applies its own background after the indicator is shown. Applying the selected
+        // color before every draw prevents an intermediate frame with the app's red color.
+        ViewTreeObserver.OnPreDrawListener listener = () -> {
+            setIndicatorColor(view, color);
+            return true;
+        };
+        view.getViewTreeObserver().addOnPreDrawListener(listener);
+
+        // The observer belongs to the window, so remove the listener when a discarded indicator
+        // is detached instead of keeping it alive for the lifetime of the window.
+        view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(@NonNull View attached) {
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(@NonNull View detached) {
+                detached.getViewTreeObserver().removeOnPreDrawListener(listener);
+            }
+        });
+    }
+
+    private static void setIndicatorColor(View view, int color) {
+        Drawable background = view.getBackground();
+
+        if (background instanceof GradientDrawable shape) {
+            ColorStateList fill = shape.getColor();
+            if (fill == null || fill.getDefaultColor() != color) {
+                ((GradientDrawable) shape.mutate()).setColor(color);
+            }
+        }
+
+        if (view instanceof TextView count && isMaterialYouTheme()) {
+            final int textColor = getIndicatorTextColor(view.getContext());
+            if (count.getCurrentTextColor() != textColor) {
+                count.setTextColor(textColor);
+            }
+        }
+    }
+
+    /**
+     * Returns the dynamic Material You color or the configured color for other themes.
+     */
+    @Nullable
+    public static Integer getIndicatorColor(Context context) {
+        try {
+            final boolean dark = isDarkTheme();
+            final String selectedTheme = dark
+                    ? Settings.DARK_THEME.get()
+                    : Settings.LIGHT_THEME.get();
+            if (selectedTheme.startsWith("material_you_")) {
+                return getMaterialYouIndicatorColor(context, dark);
+            }
+
+            return ResourceUtils.getColor(
+                    Settings.NOTIFICATION_DOT_COLOR.get(),
+                    Color.parseColor(DEFAULT_NOTIFICATION_DOT_COLOR));
+        } catch (Exception ex) {
+            Logger.printException(() -> "getIndicatorColor failure", ex);
+            return null;
+        }
+    }
+
+    private static Integer getMaterialYouIndicatorColor(Context context, boolean dark) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return null;
+        }
+
+        return context.getColor(dark
+                ? android.R.color.system_accent1_100
+                : android.R.color.system_accent1_200);
+    }
+
+    private static boolean isMaterialYouTheme() {
+        final String selectedTheme = isDarkTheme()
+                ? Settings.DARK_THEME.get()
+                : Settings.LIGHT_THEME.get();
+        return selectedTheme.startsWith("material_you_");
+    }
+
+    /** Returns text that remains readable on the selected Material You indicator color. */
+    public static int getIndicatorTextColor(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return context.getColor(android.R.color.system_neutral1_900);
+        }
+
+        // Never reached: an indicator color exists only on Android 12 and newer.
+        return Color.BLACK;
     }
 
     private static boolean isDisableTranslucentStatusBar() {
         return Settings.DISABLE_TRANSLUCENT_STATUS_BAR.get();
+    }
+
+    /**
+     * Returns YouTube's appearance, falling back to the last resolved value during process start.
+     * The device mode is not authoritative because YouTube has an independent appearance setting.
+     */
+    private static boolean isDarkTheme() {
+        return BaseThemeUtils.isAppThemeResolved()
+                ? BaseThemeUtils.isDarkModeEnabled()
+                : Settings.THEME_LAST_USED_DARK_MODE.get();
     }
 
     @SuppressLint("DiscouragedApi")
@@ -255,6 +571,10 @@ public final class ThemePatch {
             int darkIndex = indexFor(PRECOMPILED_DARK_THEME_KEYS, Settings.DARK_THEME.get());
             int lightIndex = indexFor(PRECOMPILED_LIGHT_THEME_KEYS, Settings.LIGHT_THEME.get());
             int themedMnc = darkIndex * PRECOMPILED_LIGHT_THEME_KEYS.length + lightIndex + 1;
+            if (!Settings.THEME_COLOR_CHANGE_FOREGROUND.get()) {
+                themedMnc += PRECOMPILED_THEME_PAIR_COUNT *
+                        (isDarkTheme() ? 1 : 2);
+            }
             apply(resources, themedMnc);
 
             Context applicationContext = context.getApplicationContext();
@@ -301,15 +621,17 @@ public final class ThemePatch {
                 {0x5C, 0x34, 0x12, (byte) 0xFF}, {0x5D, 0x34, 0x12, (byte) 0xFF},
                 {0x5E, 0x34, 0x12, (byte) 0xFF},
         };
-        private static final byte[] LIGHT_PLACEHOLDER = {0x21, 0x43, 0x65, (byte) 0xFF};
+        private static final byte[] LIGHT_PLACEHOLDER =
+                {0x21, 0x43, 0x65, (byte) 0xFF};
         private static final byte[] LIGHT_OPACITY70_PLACEHOLDER =
                 {0x32, 0x54, 0x76, (byte) 0xFF};
         /**
          * Gzip/Base64 resources.arsc generated with aapt2 from the stable runtime color IDs.
-         * The placeholder values are replaced before loading it.
+         * Synthetic MNC variants represent both changed palettes, the dark background only, and
+         * the light background only. The last two keep the opposite foreground palette stock.
          */
         private static final String COMPRESSED_TABLE =
-                "H4sIAGSJhWoAA+3dz0/TcBjH8adFFBQFPHkgZkYOBpKlwEBIMJKYeBV1/v5Ry2jGQrcupTPhovwBHryYeDTx4tGjRxP+Af8ETp71L8Cn2wMsQVIXPBjzfpEP3366p+vSbMemrgzJzisRR7KM6V8X3bnf3YLzRede62ZFYqlLUaq6xvo/klBbIA1ZlUT31HQtyqZutSTVrOjr/5OC01nfOAf7smsX6Xqya67UtT2gGdFcyI7XXNG4cl2mbJ22dcbWkq2zuva3r3ikSfbP5fWJjB6cXF50neuy5qZmQ/NBs635rhnUuSVNQ/NOs635qbnoitzSbGk+agqFepw010I/aTXSWj30V4Nk3U/XQt1ciYLKupc/MiUTE3kjftwMKrV0c2G2l+H5/JNP54/M5I+UpFQ6emQjDdLWhr8SJJrKejWJW43V9oBMTh59WD1Iw6QWRH41CTf9+VlPxsdzPoffbCVhL2/qeT1ML+h07tX39q7+nCfF4p983r0D5ns9YO43X66oVl1L7YhKHMXJ4U98aGTv/a564rojUl7MfpuOjA4f77cPAAAAAAAAAAAAAAAAAAAAAAAAAAAA4K9bOm4ctyyfrnXu98/uKX6/2HnhOHYBAAAAAAAAAAAAAAAAAAAAAAAAAAAA/DOye4CzZ4QXNJ7daLwsnWd7NzVbmrfSeab3Z81XzTfNjuZHdrCTPWfcbd9LPCAytlw6v5t1x/pt6671O9b7rN+1fsJ62Xq/9XvWT1q/b/2U9QfWB6w/tD5o/ZH109YfWz9j/Yn1IetPrZ+1/sz6OevPrQ9bv3QjbPcR69Pll7u/AI6KtVjgfgAA";
+                "H4sIAI0omWoC/+3cv28U+R3H4e/u2sYGg9fQUFjRmlyB7iS05zMXrjoLpLQxsPz+YRuzAguDrcVGojpTJwVNJNJZSkNpKf8A0rUpKFNSpSYp02w+s/5wtnI5OXBFouh50JuZlz2DR8PSUi/j5S+/rZdaKbGp+LVPfPGHrrdqO3Hdd3G6XNbK43KmPIjjWvy+WrpRS+VJuV968ZWVOJ4pz+Nss2zE7sX3/5+0arvH39X2v6qpeA+ljOy7bnbf+WisGTtZ3R87Xb3S8m35Mo8zefwqj7N5PBvH4cEbX431fvhZ7UYpk/v+nhb3/axfxn4dexrbjn0f+2tsLK6biz2J/T72fexvsV/US/lNbCv2x1ir9Xitt/6wu9DbfLKx8ri7cH+p92hh42E3Tu+tLi0/ah98yZfl888PumRhbX1peWXj+TdnP+bicwf/8JmDL/nq4Etmy+zsT1/ydGNpY/Ppwr2lXmz50YPe2uaT+4MLyhdf/PRtj5c2ur2VpdWFB73u84VzZ9vls88OeI6F9c1e92P+0Hb7I67+Jq4+8O23P7z9r9vlzJn/5Hk/3HDuY2/4+t98uFZXHjzcyDuW11bXej9+4h9d8uHP+1W71OvN0tmq/m0OlclWAQAAAAAAAAAAAAAAAAAA/oc0Spn7ufMWAQAAAAAAAAAAAAAAAAAAAOC/p1bvlNcvShmJ88lWKa+2fv5/CtIHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPolNGOtWDs2F5uPLcbWY1uxl7Ht2E7sText7F3sfXVzrZTRUq/O4lim5meP96uuZV/Mrmdfym5kX84eyu5kD2dfyR7Jvpp9KPta9mj29eyx7BvZh7NvZh/JvpU9nn07+2j2nexj2XezJ7KnL3QH3cye6Tzr1+qd8vpFGTzzZLzYV1u77/VUo1Y+lU8qAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPT7JTRjrVg7Nhebjy3G1mNbsZex7dhO7E3sbexd7H11c62U0VKvzuJYpuZnj/errmVfzK5nX8puZF/OHsruZA9nX8keyb6afSj7WvZo9vXssewb2Yezb2Yfyb6VPZ59O/to9p3sY9l3syeypy90B93Mnuk869fqnfL6RRk882S82Fdbu+/1VGP3PX0Kn1QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA6PdLaMZasXZsLjYfW4ytx7ZiL2PbsZ3Ym9jb2LvY++rmWimjpV6dxbFMzc8e71ddy76YXc++lN3Ivpw9lN3JHs6+kj2SfTX7UPa17NHs69lj2TeyD2ffzD6SfSt7PPt29tHsO9nHsu9mT2RX77Dq5l7/qVbvlNcvyuCZJ+PFvtrafa+nGo3yqXxSAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKDfL6EZa8XasbnYfGwxth7bir2Mbcd2Ym9ib2PvYu+rm2uljJZ6dRbHMnX69Ol+1bXs6enpQdf3+u9VN/b6H1UPZZ88eXJw/XD2xMTEoEeyG43GoA9lnzhxYtCj2e12e9Bj2XEY9OHs8+fPD/rIvzzf+N7z/6Hqo3v3/7nqY3s9+P7Eh/svdAf3N7NnOs/6/wT6f3X22IsCAA==";
 
         private static ResourcesLoader loader;
 
@@ -341,12 +663,46 @@ public final class ThemePatch {
                 loader.addProvider(provider);
             }
 
+            applySelection(context);
             Resources contextResources = context.getResources();
             contextResources.addLoaders(loader);
             Context applicationContext = context.getApplicationContext();
             if (applicationContext != null && applicationContext.getResources() != contextResources) {
                 applicationContext.getResources().addLoaders(loader);
             }
+            BaseThemeUtils.setThemeColor();
+        }
+
+        /** Selects a table configuration after YouTube reports its own forced appearance. */
+        static synchronized void select(Context context) {
+            applySelection(context);
+            if (loader != null) {
+                BaseThemeUtils.setThemeColor();
+            }
+        }
+
+        private static void applySelection(Context context) {
+            int themedMnc = Settings.THEME_COLOR_CHANGE_FOREGROUND.get()
+                    ? RUNTIME_THEME_CHANGE_FOREGROUND_MNC
+                    : isDarkTheme()
+                            ? RUNTIME_THEME_DARK_BACKGROUND_MNC
+                            : RUNTIME_THEME_LIGHT_BACKGROUND_MNC;
+            Resources contextResources = context.getResources();
+            apply(contextResources, themedMnc);
+            Context applicationContext = context.getApplicationContext();
+            if (applicationContext != null && applicationContext.getResources() != contextResources) {
+                apply(applicationContext.getResources(), themedMnc);
+            }
+        }
+
+        private static void apply(Resources resources, int themedMnc) {
+            Configuration current = resources.getConfiguration();
+            if (current.mcc == RUNTIME_THEME_MCC && current.mnc == themedMnc) return;
+
+            Configuration themed = new Configuration(current);
+            themed.mcc = RUNTIME_THEME_MCC;
+            themed.mnc = themedMnc;
+            resources.updateConfiguration(themed, resources.getDisplayMetrics());
         }
 
         private static byte[] inflateTable() throws IOException {
@@ -364,6 +720,7 @@ public final class ThemePatch {
 
         private static void replacePlaceholderColor(byte[] table, byte[] placeholder, int color)
                 throws IOException {
+            boolean found = false;
             for (int i = 0; i <= table.length - placeholder.length; i++) {
                 if (table[i] == placeholder[0]
                         && table[i + 1] == placeholder[1]
@@ -373,10 +730,13 @@ public final class ThemePatch {
                     table[i + 1] = (byte) (color >>> 8);
                     table[i + 2] = (byte) (color >>> 16);
                     table[i + 3] = (byte) (color >>> 24);
-                    return;
+                    found = true;
+                    i += placeholder.length - 1;
                 }
             }
-            throw new IOException("Runtime theme placeholder not found");
+            if (!found) {
+                throw new IOException("Runtime theme placeholder not found");
+            }
         }
 
     }
@@ -418,14 +778,14 @@ public final class ThemePatch {
      * Injection point for the splash screen visibility flag.
      */
     public static boolean showSplashScreen(boolean original) {
-        return Settings.SPLASH_SCREEN_ANIMATION_STYLE.get() != SplashScreenAnimationStyle.DISABLED && original;
+        return !shouldDisableHostSplashAnimation() && original;
     }
 
     /**
      * Injection point for the splash screen animation resource selection.
      */
     public static int showSplashScreen(int i, int i2) {
-        if (Settings.SPLASH_SCREEN_ANIMATION_STYLE.get() != SplashScreenAnimationStyle.DISABLED || i != i2) {
+        if (!shouldDisableHostSplashAnimation() || i != i2) {
             return i;
         }
         return i - 1;
@@ -437,7 +797,7 @@ public final class ThemePatch {
     public static int getLoadingScreenType(int original) {
         SplashScreenAnimationStyle style = Settings.SPLASH_SCREEN_ANIMATION_STYLE.get();
 
-        if (style == SplashScreenAnimationStyle.DISABLED) {
+        if (shouldDisableHostSplashAnimation()) {
             return original;
         }
 
@@ -448,5 +808,19 @@ public final class ThemePatch {
         }
 
         return replacement;
+    }
+
+    /** Returns whether the selected splash animation style disables the animation completely. */
+    private static boolean isSplashAnimationDisabled() {
+        return Settings.SPLASH_SCREEN_ANIMATION_STYLE.get() == SplashScreenAnimationStyle.DISABLED;
+    }
+
+    /**
+     * Suppresses YouTube's host splash when custom branding supplies its own splash overlay.
+     * The style preference remains the independent control that disables both implementations.
+     */
+    private static boolean shouldDisableHostSplashAnimation() {
+        return isSplashAnimationDisabled()
+                || !"original".equals(Settings.CUSTOM_BRANDING_ICON.get());
     }
 }

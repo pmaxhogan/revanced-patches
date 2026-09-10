@@ -76,11 +76,13 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.RoundRectShape;
 import android.media.AudioManager;
+import android.os.SystemClock;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -99,15 +101,12 @@ import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import com.google.android.libraries.youtube.innertube.model.media.VideoQuality;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -135,6 +134,7 @@ import app.morphe.extension.youtube.patches.video.CustomPlaybackSpeedPatch;
 import app.morphe.extension.youtube.patches.video.CustomPlaybackSpeedPatch.PlaybackSpeedMenuType;
 import app.morphe.extension.youtube.patches.video.PlaybackSpeedPatch;
 import app.morphe.extension.youtube.patches.video.VideoQualityPatch;
+import app.morphe.extension.youtube.patches.video.VideoQualityPatch.VideoQualityInterface;
 import app.morphe.extension.youtube.patches.video.VideoQualityPatch.VideoQualityMenuInterface;
 import app.morphe.extension.youtube.patches.voiceovertranslation.VoiceOverTranslationPatch;
 import app.morphe.extension.youtube.settings.Settings;
@@ -537,8 +537,8 @@ public class VideoUtils extends IntentUtils {
 
     public static void showCustomVideoQualityFlyoutMenu(Context context) {
         try {
-            VideoQuality[] currentQualities = VideoQualityPatch.getCurrentQualities();
-            VideoQuality currentQuality = VideoQualityPatch.getCurrentQuality();
+            VideoQualityInterface[] currentQualities = VideoQualityPatch.getCurrentQualities();
+            VideoQualityInterface currentQuality = VideoQualityPatch.getCurrentQuality();
             if (currentQualities == null || currentQuality == null) {
                 Logger.printDebug(() -> "Cannot show qualities dialog, videoQualities is null");
                 return;
@@ -556,7 +556,7 @@ public class VideoUtils extends IntentUtils {
 
             // -1 adjustment for automatic quality at first index.
             int listViewSelectedIndex = -1;
-            for (VideoQuality quality : currentQualities) {
+            for (VideoQualityInterface quality : currentQualities) {
                 if (quality.patch_getQualityName().equals(currentQuality.patch_getQualityName())) {
                     break;
                 }
@@ -564,7 +564,7 @@ public class VideoUtils extends IntentUtils {
             }
 
             List<String> qualityLabels = new ArrayList<>(currentQualities.length - 1);
-            for (VideoQuality availableQuality : currentQualities) {
+            for (VideoQualityInterface availableQuality : currentQualities) {
                 if (availableQuality.patch_getResolution() != AUTOMATIC_VIDEO_QUALITY_VALUE) {
                     qualityLabels.add(availableQuality.patch_getQualityName());
                 }
@@ -668,7 +668,7 @@ public class VideoUtils extends IntentUtils {
             listView.setOnItemClickListener((parent, view, which, id) -> {
                 try {
                     final int originalIndex = which + 1; // Adjust for automatic.
-                    VideoQuality selectedQuality = currentQualities[originalIndex];
+                    VideoQualityInterface selectedQuality = currentQualities[originalIndex];
                     Logger.printDebug(() -> "User clicked on quality: " + selectedQuality);
 
                     if (VideoQualityPatch.shouldRememberVideoQuality()) {
@@ -1377,15 +1377,10 @@ public class VideoUtils extends IntentUtils {
         container.setGravity(Gravity.CENTER);
         container.setPadding(dip16, dip8, dip16, dip12);
 
-        ProgressBar progressBar = new ProgressBar(context, null, android.R.attr.progressBarStyleSmall);
-        progressBar.setIndeterminate(true);
-        if (progressBar.getIndeterminateDrawable() != null) {
-            progressBar.getIndeterminateDrawable().setColorFilter(
-                    ThemeUtils.getAppForegroundColor(), PorterDuff.Mode.SRC_IN);
-        }
+        VotCountdownProgressView progressView = new VotCountdownProgressView(context);
         LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(dip32, dip32);
         progressParams.setMargins(0, 0, dip12, 0);
-        container.addView(progressBar, progressParams);
+        container.addView(progressView, progressParams);
 
         TextView progressText = new TextView(context);
         progressText.setTextColor(ThemeUtils.getAppForegroundColor());
@@ -1400,9 +1395,11 @@ public class VideoUtils extends IntentUtils {
             String status = VoiceOverTranslationPatch.getTranslationRequestStatusText();
             boolean visible = !status.isEmpty();
             container.setVisibility(visible ? View.VISIBLE : View.GONE);
+            progressView.setProgressFraction(
+                    VoiceOverTranslationPatch.getTranslationRequestProgressFraction());
             progressText.setText(status);
             if (visible && container.getWindowToken() != null) {
-                container.postDelayed(updateProgress[0], 1000);
+                container.postDelayed(updateProgress[0], 250);
             }
         };
 
@@ -1419,6 +1416,63 @@ public class VideoUtils extends IntentUtils {
         });
         updateProgress[0].run();
         return container;
+    }
+
+    /**
+     * Draws the remaining server estimate as a shrinking circular arc. Once the estimate expires,
+     * a moving arc communicates that the translation is still processing without inventing a new
+     * countdown from a later poll response.
+     */
+    private static final class VotCountdownProgressView extends View {
+        private static final float INDETERMINATE_ARC_DEGREES = 100.0f;
+        private static final float PROGRESS_TRACK_ALPHA = 48.0f;
+
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF bounds = new RectF();
+        private final float strokeWidth;
+        private float progress = -1.0f;
+
+        VotCountdownProgressView(Context context) {
+            super(context);
+            strokeWidth = Math.max(1.0f, dipToPixels(2));
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+        }
+
+        void setProgressFraction(float progress) {
+            this.progress = Float.isNaN(progress)
+                    ? -1.0f
+                    : Math.max(-1.0f, Math.min(1.0f, progress));
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float inset = strokeWidth / 2.0f;
+            bounds.set(inset, inset, getWidth() - inset, getHeight() - inset);
+            if (bounds.width() <= 0.0f || bounds.height() <= 0.0f) return;
+
+            int foregroundColor = ThemeUtils.getAppForegroundColor();
+            paint.setStrokeWidth(strokeWidth);
+            paint.setColor(withAlpha(foregroundColor, (int) PROGRESS_TRACK_ALPHA));
+            canvas.drawArc(bounds, -90.0f, 360.0f, false, paint);
+
+            paint.setColor(foregroundColor);
+            if (progress >= 0.0f) {
+                canvas.drawArc(bounds, -90.0f, 360.0f * progress, false, paint);
+            } else {
+                float start = (SystemClock.uptimeMillis() / 3.0f) % 360.0f - 90.0f;
+                canvas.drawArc(bounds, start, INDETERMINATE_ARC_DEGREES, false, paint);
+                if (getVisibility() == View.VISIBLE) {
+                    postInvalidateOnAnimation();
+                }
+            }
+        }
+
+        private static int withAlpha(int color, int alpha) {
+            return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha)) << 24);
+        }
     }
 
     /**
