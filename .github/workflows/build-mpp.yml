@@ -36,7 +36,7 @@ env:
   # Vantage build revision. See the VERSIONING note above. Bump this string for a
   # Vantage-only rebuild on the SAME upstream version; leave it when an upstream
   # sync bumps the base version (that already produces a new tag).
-  VANTAGE_REV: "1"
+  VANTAGE_REV: "2"
 
 jobs:
   build:
