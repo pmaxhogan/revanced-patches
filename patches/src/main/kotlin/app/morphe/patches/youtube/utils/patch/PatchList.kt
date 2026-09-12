@@ -5,6 +5,10 @@ internal enum class PatchList(
     val summary: String,
     var included: Boolean? = false
 ) {
+    APP_REFRESH_RATE(
+        "App refresh rate",
+        "Adds an option to change the app refresh rate."
+    ),
     ALTERNATIVE_THUMBNAILS(
         "Alternative thumbnails",
         "Adds options to replace video thumbnails using the DeArrow API or image captures from the video."
@@ -89,6 +93,10 @@ internal enum class PatchList(
         "Disable resuming Shorts on startup",
         "Adds an option to disable the Shorts player from resuming on app startup when Shorts were last being watched."
     ),
+    DISABLE_SCROLLING_SPEED_LIMIT(
+        "Disable scrolling speed limit",
+        "Adds an option to remove limits of how fast the home and subscription feed can be scrolled."
+    ),
     DISABLE_SIGN_IN_TO_TV_POPUP(
         "Disable sign in to TV popup",
         "Adds an option to disable the popup asking to sign into a TV on the same local network."
@@ -100,10 +108,6 @@ internal enum class PatchList(
     ENABLE_GRADIENT_LOADING_SCREEN(
         "Enable gradient loading screen",
         "Adds an option to enable the gradient loading screen."
-    ),
-    FORCE_HIDE_PLAYER_BUTTONS_BACKGROUND(
-        "Force player buttons background",
-        "Changes the dark background surrounding the video player controls at compile time."
     ),
     FULLSCREEN_COMPONENTS(
         "Fullscreen components",
@@ -155,7 +159,7 @@ internal enum class PatchList(
     ),
     HIDE_PLAYER_BUTTONS(
         "Hide player buttons",
-        "Adds options to hide buttons in the video player."
+        "Adds options to hide buttons in the video player, and to hide or change the opacity of the player control buttons background."
     ),
     HIDE_PLAYER_FLYOUT_MENU(
         "Hide player flyout menu",

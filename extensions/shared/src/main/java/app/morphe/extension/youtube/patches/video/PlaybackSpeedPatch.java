@@ -169,6 +169,16 @@ public class PlaybackSpeedPatch {
     }
 
     /**
+     * Injection point called when a new player controller is created.
+     * Re-arms speed initialization for a player reopening the same video.
+     */
+    public static void newPlayerStarted() {
+        userChangedSpeedForCurrentVideo = false;
+        newAudioStarted = true;
+        newVideoStarted = true;
+    }
+
+    /**
      * Injection point.
      * This method is used to reset the playback speed to 1.0 when a general video is started, whether it is a live stream, music, or whitelist.
      */
@@ -231,6 +241,25 @@ public class PlaybackSpeedPatch {
                 Logger.printException(() -> "fetchRequest failure", ex);
             }
         }
+    }
+
+    /**
+     * Injection point for the 21.04+ media player's load parameters. Shorts must receive their
+     * initial rate here because opening them directly does not initialize the regular speed menu.
+     * Use the opening player response rather than view attachment: on a cold start the Shorts
+     * view may not be attached yet. Shelf prefetches do not change lastVideoIdIsShort().
+     * Regular videos retain the rate supplied by YouTube and the regular-video speed hooks.
+     */
+    public static float getShortsPlaybackSpeed(float playbackSpeed) {
+        if (!VideoInformation.lastVideoIdIsShort()) {
+            return playbackSpeed;
+        }
+        float speed = DEFAULT_PLAYBACK_SPEED_SHORTS.get();
+        if (speed < 0) {
+            speed = lastSelectedShortsPlaybackSpeed;
+        }
+        VideoInformation.setPlaybackSpeed(speed);
+        return speed;
     }
 
     /**

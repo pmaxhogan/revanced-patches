@@ -1,3 +1,14 @@
+/*
+ * Portions of this file are ported from Morphe:
+ * Copyright 2026 Morphe.
+ * https://github.com/MorpheApp/morphe-patches/pull/2524
+ *
+ * Original hard forked code:
+ * https://github.com/ReVanced/revanced-patches/commit/724e6d61b2ecd868c1a9a37d465a688e83a74799
+ *
+ * See the included NOTICE file for GPLv3 Section 7 terms that apply to Morphe contributions.
+ */
+
 package app.morphe.patches.youtube.video.playback
 
 import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
@@ -25,6 +36,7 @@ import app.morphe.patches.youtube.utils.flyoutmenu.flyoutMenuHookPatch
 import app.morphe.patches.youtube.utils.patch.PatchList.VIDEO_PLAYBACK
 import app.morphe.patches.youtube.utils.playertype.playerTypeHookPatch
 import app.morphe.patches.youtube.utils.playservice.is_19_30_or_greater
+import app.morphe.patches.youtube.utils.playservice.is_20_40_or_greater
 import app.morphe.patches.youtube.utils.playservice.is_20_14_or_greater
 import app.morphe.patches.youtube.utils.playservice.is_21_04_or_greater
 import app.morphe.patches.youtube.utils.playservice.versionCheckPatch
@@ -37,12 +49,14 @@ import app.morphe.patches.youtube.video.information.EXTENSION_PLAYBACK_SPEED_MEN
 import app.morphe.patches.youtube.video.information.InitializePlaybackSpeedValuesFingerprint
 import app.morphe.patches.youtube.video.information.hookBackgroundPlayVideoInformation
 import app.morphe.patches.youtube.video.information.hookVideoInformation
+import app.morphe.patches.youtube.video.information.onCreateHook
 import app.morphe.patches.youtube.video.information.speedSelectionInsertMethod
 import app.morphe.patches.youtube.video.information.videoInformationPatch
 import app.morphe.patches.youtube.video.information.VideoQualityChangedFingerprint
 import app.morphe.patches.youtube.video.quality.prioritizeVideoQualityPatch
 import app.morphe.patches.youtube.video.videoid.hookPlayerResponseVideoId
 import app.morphe.patches.youtube.video.videoid.videoIdPatch
+import app.morphe.util.addInstructionsAtControlFlowLabel
 import app.morphe.util.ResourceGroup
 import app.morphe.util.copyResources
 import app.morphe.util.findFreeRegister
@@ -140,6 +154,8 @@ val videoPlaybackPatch = bytecodePatch(
 
         // region patch for default playback speed
 
+        onCreateHook(EXTENSION_PLAYBACK_SPEED_CLASS_DESCRIPTOR, "newPlayerStarted")
+
         val newMethod = (if (is_21_04_or_greater) {
             ModernPlaybackSpeedChangedFromRecyclerViewFingerprint
         } else {
@@ -164,7 +180,26 @@ val videoPlaybackPatch = bytecodePatch(
             }
         }
 
-        if (is_20_14_or_greater && !is_21_04_or_greater) {
+        if (is_21_04_or_greater) {
+            // Supply the rate when the media player loads the Short, before a speed menu or
+            // metadata callback is needed. Hook both returns for the player-settings flag.
+            ModernLoadPlaybackSpeedFingerprint.method.apply {
+                implementation!!.instructions.withIndex()
+                    .filter { it.value.opcode == Opcode.RETURN }
+                    .map { it.index }
+                    .reversed()
+                    .forEach { index ->
+                        val register = getInstruction<OneRegisterInstruction>(index).registerA
+                        addInstructionsAtControlFlowLabel(
+                            index,
+                            """
+                            invoke-static { v$register }, $EXTENSION_PLAYBACK_SPEED_CLASS_DESCRIPTOR->getShortsPlaybackSpeed(F)F
+                            move-result v$register
+                            """
+                        )
+                    }
+            }
+        } else if (is_20_14_or_greater) {
             PcmGetterMethodFingerprint.classDef.let {
                 val targetMethod =
                     it.methods.find { method -> method.returnType == "F" && method.parameters.isEmpty() }
@@ -281,6 +316,16 @@ val videoPlaybackPatch = bytecodePatch(
         // endregion
 
         // region patch for show advanced video quality menu
+
+        if (is_20_40_or_greater) {
+            // Flag breaks opening advanced quality menu.
+            // Alternatively can be fixed by using a delay when simulating the UI click.
+            NewFlyoutMenuFeatureFlagFingerprint.matchAll().forEach {
+                it.method.insertLiteralOverride(
+                    it.instructionMatches.first().index, false
+                )
+            }
+        }
 
         ShowVideoQualityQuickMenuFingerprint.matchAll().forEach {
             it.method.apply {

@@ -52,6 +52,7 @@ import app.morphe.extension.shared.utils.BaseThemeUtils;
 import app.morphe.extension.shared.utils.Logger;
 import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.patches.FullscreenVideoScalePatch.VideoScaleMode;
+import app.morphe.extension.youtube.patches.misc.BackgroundPlaybackPatch.AutoPauseOnLockMode;
 import app.morphe.extension.youtube.patches.PlaybackInFeedsPatch;
 import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.DeArrowAvailability;
 import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.StillImagesAvailability;
@@ -72,6 +73,8 @@ import app.morphe.extension.youtube.patches.swipe.SwipeControlsPatch.SwipeOverla
 import app.morphe.extension.youtube.patches.swipe.SwipeControlsPatch.SwipeOverlaySpeedColorAvailability;
 import app.morphe.extension.youtube.patches.swipe.SwipeControlsPatch.SwipeOverlayVolumeColorAvailability;
 import app.morphe.extension.youtube.patches.theme.ThemePatch;
+import app.morphe.extension.shared.settings.preference.SeekBarPreference;
+import app.morphe.extension.youtube.patches.voiceovertranslation.GoogleVoiceOverTranslationPatch;
 import app.morphe.extension.youtube.patches.theme.ThemePatch.SplashScreenAnimationStyle;
 import app.morphe.extension.youtube.patches.utils.PatchStatus;
 import app.morphe.extension.youtube.patches.video.CustomPlaybackSpeedPatch.PlaybackSpeedMenuType;
@@ -641,6 +644,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting HIDE_PLAYER_FULLSCREEN_BUTTON = new BooleanSetting("revanced_hide_player_fullscreen_button", FALSE, true);
     public static final BooleanSetting HIDE_PLAYER_PREVIOUS_NEXT_BUTTON = new BooleanSetting("revanced_hide_player_previous_next_button", FALSE, true);
     public static final BooleanSetting HIDE_PLAYER_CONTROL_BUTTONS_BACKGROUND = new BooleanSetting("revanced_hide_player_control_buttons_background", FALSE, true);
+    public static final IntegerSetting PLAYER_CONTROL_BUTTONS_BACKGROUND_OPACITY = new IntegerSetting("morphe_player_control_buttons_background_opacity", 30, true, new SliderConfig(0, 100, 1, "%"), parentInverted(HIDE_PLAYER_CONTROL_BUTTONS_BACKGROUND));
     public static final BooleanSetting HIDE_PLAYER_YOUTUBE_MUSIC_BUTTON = new BooleanSetting("revanced_hide_player_youtube_music_button", FALSE);
 
     public static final BooleanSetting ALWAYS_REPEAT = new BooleanSetting("revanced_always_repeat", FALSE);
@@ -799,7 +803,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_EXTERNAL_DOWNLOADER = new BooleanSetting("revanced_shorts_custom_actions_external_downloader", FALSE, true);
     public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_OPEN_VIDEO = new BooleanSetting("revanced_shorts_custom_actions_open_video", FALSE, true);
     public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_SPEED_DIALOG = new BooleanSetting("revanced_shorts_custom_actions_speed_dialog", FALSE, true);
-    public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_VOICE_OVER_TRANSLATION = new BooleanSetting("revanced_shorts_custom_actions_voice_over_translation", TRUE, true);
+    public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_VOICE_OVER_TRANSLATION = new BooleanSetting("revanced_shorts_custom_actions_voice_over_translation", FALSE, true);
     public static final BooleanSetting SHORTS_CUSTOM_ACTIONS_REPEAT_STATE = new BooleanSetting("revanced_shorts_custom_actions_repeat_state", FALSE, true);
 
     // PreferenceScreen: Player - Buttons
@@ -939,6 +943,8 @@ public class Settings extends SharedYouTubeSettings {
 
     // PreferenceScreen: Miscellaneous
     public static final BooleanSetting BACK_BUTTON_ALWAYS_EXITS_FEED = new BooleanSetting("revanced_back_button_always_exits_feed", TRUE, true);
+    public static final BooleanSetting DISABLE_SCROLLING_SPEED = new BooleanSetting("morphe_disable_scrolling_speed_limit", TRUE, true);
+    public static final EnumSetting<AutoPauseOnLockMode> AUTO_PAUSE_ON_LOCK = new EnumSetting<>("morphe_auto_pause_on_screen_lock", AutoPauseOnLockMode.OFF);
     public static final BooleanSetting BYPASS_URL_REDIRECTS = new BooleanSetting("revanced_bypass_url_redirects", TRUE);
     public static final BooleanSetting OPEN_LINKS_EXTERNALLY = new BooleanSetting("revanced_open_links_externally", TRUE, true);
     public static final BooleanSetting ENABLE_WATCH_NEXT_PROCESSING_DELAY = new BooleanSetting("revanced_enable_watch_next_processing_delay", FALSE,
@@ -968,8 +974,8 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting RYD_TOAST_ON_CONNECTION_ERROR = new BooleanSetting("ryd_toast_on_connection_error", TRUE, parent(RYD_ENABLED));
 
 
-    // PreferenceScreen: Voice Over Translation
-    public static final BooleanSetting VOT_ENABLED = new BooleanSetting("vot_enabled", TRUE);
+    // PreferenceScreen: Voice Over Translation - Yandex
+    public static final BooleanSetting VOT_ENABLED = new BooleanSetting("vot_enabled", FALSE);
     public static final StringSetting VOT_SOURCE_LANGUAGE = new StringSetting("vot_source_language", "auto", parent(VOT_ENABLED));
     public static final StringSetting VOT_TARGET_LANGUAGE = new StringSetting("vot_target_language", "ru", parent(VOT_ENABLED));
     public static final BooleanSetting VOT_PAUSE_VIDEO_WHILE_PREPARING_TRANSLATION = new BooleanSetting("vot_pause_video_while_preparing_translation", FALSE, parent(VOT_ENABLED));
@@ -983,6 +989,22 @@ public class Settings extends SharedYouTubeSettings {
     public static final StringSetting VOT_OAUTH_TOKEN = new StringSetting("vot_oauth_token", "", parent(VOT_ENABLED));
     public static final StringSetting VOT_OAUTH_DISPLAY_NAME = new StringSetting("vot_oauth_display_name", "", false, parent(VOT_ENABLED));
     public static final LongSetting VOT_OAUTH_TOKEN_EXPIRES_AT = new LongSetting("vot_oauth_token_expires_at", 0L, false, false, null, parent(VOT_ENABLED));
+
+    // PreferenceScreen: Voice Over Translation - Google
+    public static final BooleanSetting GOOGLE_VOT_ENABLED = new BooleanSetting("morphe_vot_enabled", FALSE, true);
+    public static final BooleanSetting GOOGLE_VOT_SESSION_ENABLED = new BooleanSetting("morphe_vot_session_enabled", FALSE);
+    public static final StringSetting GOOGLE_VOT_CAPTION_LANGUAGE = new StringSetting("morphe_vot_caption_language", "app", parent(GOOGLE_VOT_ENABLED));
+    public static final StringSetting GOOGLE_VOT_TTS_VOICE_TYPE = new StringSetting("morphe_vot_tts_voice_type", "auto", parent(GOOGLE_VOT_ENABLED));
+    public static final IntegerSetting GOOGLE_VOT_ORIGINAL_AUDIO_VOLUME = new IntegerSetting("morphe_vot_original_audio_volume", 50, parent(GOOGLE_VOT_ENABLED));
+    public static final IntegerSetting GOOGLE_VOT_TRANSLATION_VOLUME = new IntegerSetting("morphe_vot_translation_volume", 100, parent(GOOGLE_VOT_ENABLED));
+    public static final FloatSetting GOOGLE_VOT_MAX_SPEECH_RATE = new FloatSetting("morphe_vot_max_speech_rate", 1.5f, new SliderConfig(1.0, 2.5, 0.1, "x"), parent(GOOGLE_VOT_ENABLED));
+    public static final StringSetting GOOGLE_VOT_TRANSLATION_SERVICE = new StringSetting("morphe_vot_translation_service", "google", parent(GOOGLE_VOT_ENABLED));
+    public static final StringSetting GOOGLE_VOT_OPENROUTER_API_KEY = new StringSetting("morphe_vot_openrouter_api_key", "", new GoogleVoiceOverTranslationPatch.OpenRouterServiceAvailability());
+    public static final StringSetting GOOGLE_VOT_OPENROUTER_MODEL = new StringSetting("morphe_vot_openrouter_model", "mistralai/mistral-nemo", new GoogleVoiceOverTranslationPatch.OpenRouterServiceAvailability());
+    public static final StringSetting GOOGLE_VOT_MYMEMORY_EMAIL = new StringSetting("morphe_vot_mymemory_email", "", new GoogleVoiceOverTranslationPatch.MyMemoryServiceAvailability());
+    public static final BooleanSetting GOOGLE_VOT_USE_NATIVE_TTS = new BooleanSetting("morphe_vot_use_native_tts", FALSE, parent(GOOGLE_VOT_ENABLED));
+    public static final BooleanSetting GOOGLE_VOT_SHOW_HTTP_ERROR_DIALOG = new BooleanSetting("morphe_vot_show_http_error_dialog", TRUE);
+    public static final BooleanSetting GOOGLE_VOT_HIDE_EXPORT_WARNING = new BooleanSetting("morphe_vot_hide_export_warning", FALSE, false, false);
 
     // PreferenceScreen: SponsorBlock
     public static final BooleanSetting SB_ENABLED = new BooleanSetting("sb_enabled", TRUE);
@@ -1170,8 +1192,15 @@ public class Settings extends SharedYouTubeSettings {
 
         Setting.addImportExportCallback(AUTO_CAPTIONS_IMPORT_MIGRATION_CALLBACK);
         Setting.addImportExportCallback(SponsorBlockSettings.SB_IMPORT_EXPORT_CALLBACK);
+        Setting.addImportExportCallback(GoogleVoiceOverTranslationPatch.VOT_IMPORT_EXPORT_CALLBACK);
 
         // endregion
+
+        SeekBarPreference.register(new SeekBarPreference.SeekBarConfig(GOOGLE_VOT_ORIGINAL_AUDIO_VOLUME,
+                0, 100, 10, "%"));
+        SeekBarPreference.register(new SeekBarPreference.SeekBarConfig(GOOGLE_VOT_TRANSLATION_VOLUME,
+                0, 100, 10, "%"));
+
     }
 
     private static void applyOldSbOpacityToColor(StringSetting colorSetting, FloatSetting opacitySetting) {
