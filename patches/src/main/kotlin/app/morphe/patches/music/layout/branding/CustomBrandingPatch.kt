@@ -70,7 +70,6 @@ import app.morphe.patches.music.utils.resourceid.actionBarLogoRingo2
 import app.morphe.patches.music.utils.resourceid.sharedResourceIdPatch
 import app.morphe.patches.music.utils.resourceid.ytmLogoRingo2
 import app.morphe.patches.music.utils.settings.CategoryType
-import app.morphe.patches.music.utils.settings.ResourceUtils
 import app.morphe.patches.music.utils.settings.ResourceUtils.addCustomPreference
 import app.morphe.patches.music.utils.settings.ResourceUtils.addListPreference
 import app.morphe.patches.music.utils.settings.ResourceUtils.addSwitchPreference
@@ -238,6 +237,17 @@ val customBrandingPatch = resourcePatch(
         title = "App name",
         description = "Custom app name.",
     )
+    val appIconOption = stringOption(
+        key = "appIcon",
+        default = "original",
+        values = mapOf("Stock" to "original") +
+            availableIcon.associate { it.label to it.key } + mapOf("Custom" to "custom"),
+        title = "App icon",
+        description = "Icon used by Android and selected by default in the app. " +
+            "Choose Custom to use the Custom icon folder, or enter a resource folder path. " +
+            "All icons remain available in the app settings.",
+        required = true,
+    )
     val customIconOption = folderOption(
         key = "customIcon",
         title = "Custom icon",
@@ -256,6 +266,7 @@ val customBrandingPatch = resourcePatch(
             brandingConfig,
             customNameOption.value?.trim()?.takeIf { it.isNotEmpty() },
             customIconOption.value?.trim()?.takeIf { it.isNotEmpty() },
+            appIconOption.value ?: "original",
         )
 
         addListPreference(
@@ -302,18 +313,6 @@ val customBrandingPatch = resourcePatch(
                 setSummary = true,
             )
         }
-        ResourceUtils.movePreferencesToTop(
-            CategoryType.GENERAL.value,
-            listOf(
-                "morphe_custom_branding_name",
-                "morphe_settings_name",
-                "morphe_custom_branding_icon",
-                "morphe_custom_branding_splash_animation_size",
-                "morphe_custom_branding_use_as_system_splash",
-                "morphe_custom_branding_apply_to_rvx_settings",
-            ),
-        )
-
         updatePatchStatus(CUSTOM_BRANDING_FOR_YOUTUBE_MUSIC)
     }
 

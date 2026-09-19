@@ -212,6 +212,16 @@
         <item>LANDSCAPE</item>
         <item>PORTRAIT_LANDSCAPE</item>
     </string-array>
+    <string-array name="morphe_open_videos_fullscreen_entries">
+        <item>@string/revanced_exit_fullscreen_entry_1</item>
+        <item>@string/revanced_exit_fullscreen_entry_2</item>
+        <item>@string/revanced_exit_fullscreen_entry_3</item>
+    </string-array>
+    <string-array name="morphe_open_videos_fullscreen_entry_values">
+        <item>DISABLED</item>
+        <item>PORTRAIT</item>
+        <item>LANDSCAPE</item>
+    </string-array>
     <string-array name="revanced_external_downloader_video_label">
         <item>NewPipe</item>
         <item>Seal</item>
@@ -427,6 +437,39 @@
         <item>MODERN_3</item>
         <item>MODERN_4</item>
     </string-array>
+    <string-array name="revanced_miniplayer_type_20_37_entries">
+        <item>@string/revanced_exit_fullscreen_entry_1</item>
+        <item>@string/revanced_change_form_factor_entry_1</item>
+        <item>@string/revanced_miniplayer_type_entry_2</item>
+        <item>@string/revanced_miniplayer_type_entry_3</item>
+        <!-- YT legacy tablet code is partially removed in 20.37+ -->
+        <item>@string/revanced_miniplayer_type_entry_4</item>
+        <item>@string/revanced_miniplayer_type_entry_5</item>
+        <item>@string/revanced_miniplayer_type_entry_6</item>
+        <item>@string/revanced_miniplayer_type_entry_7</item>
+    </string-array>
+    <string-array name="revanced_miniplayer_type_20_37_entry_values">
+        <item>DISABLED</item>
+        <item>DEFAULT</item>
+        <item>MINIMAL</item>
+        <item>MINIMAL_BAR_2</item>
+        <item>MODERN_1</item>
+        <item>MODERN_2</item>
+        <item>MODERN_3</item>
+        <item>MODERN_4</item>
+    </string-array>
+    <string-array name="revanced_miniplayer_type_21_29_entries">
+        <item>@string/revanced_exit_fullscreen_entry_1</item>
+        <item>@string/revanced_change_form_factor_entry_1</item>
+        <item>@string/revanced_miniplayer_type_entry_2</item>
+        <item>@string/revanced_miniplayer_type_entry_3</item>
+    </string-array>
+    <string-array name="revanced_miniplayer_type_21_29_entry_values">
+        <item>DISABLED</item>
+        <item>MODERN_4</item>
+        <item>MINIMAL_BAR</item>
+        <item>MINIMAL_BAR_2</item>
+    </string-array>
     <string-array name="revanced_miniplayer_type_19_43_entries">
         <item>@string/revanced_exit_fullscreen_entry_1</item>
         <item>@string/revanced_change_form_factor_entry_1</item>
@@ -607,6 +650,20 @@
         <item>VERTICAL</item>
         <item>VERTICAL_MINIMAL</item>
     </string-array>
+    <string-array name="revanced_swipe_zone_action_entries">
+        <item>@string/morphe_playback_in_feeds_entry_off</item>
+        <item>@string/revanced_swipe_zone_label_volume</item>
+        <item>@string/revanced_swipe_zone_label_brightness</item>
+        <item>@string/revanced_swipe_zone_label_speed</item>
+        <item>@string/revanced_swipe_zone_label_seek</item>
+    </string-array>
+    <string-array name="revanced_swipe_zone_action_entry_values">
+        <item>OFF</item>
+        <item>VOLUME</item>
+        <item>BRIGHTNESS</item>
+        <item>SPEED</item>
+        <item>SEEK</item>
+    </string-array>
     <string-array name="revanced_remix_button_index_entries">
         <item>3</item>
         <item>4</item>
@@ -696,6 +753,16 @@
         <item>DISABLED</item>
         <item>FPS_60_ONE_SECOND</item>
         <item>FPS_60_BLACK_AND_WHITE</item>
+    </string-array>
+    <string-array name="revanced_status_bar_translucency_entries">
+        <item>@string/revanced_change_form_factor_entry_1</item>
+        <item>@string/revanced_status_bar_translucency_entry_opaque</item>
+        <item>@string/revanced_status_bar_translucency_entry_transparent</item>
+    </string-array>
+    <string-array name="revanced_status_bar_translucency_entry_values" translatable="false">
+        <item>DEFAULT</item>
+        <item>OPAQUE</item>
+        <item>TRANSPARENT</item>
     </string-array>
     <string-array name="morphe_dark_theme_entries">
         <item>@string/revanced_icon_default</item>

@@ -9,14 +9,51 @@
 package app.morphe.patches.youtube.player.fullscreen
 
 import app.morphe.patcher.Fingerprint
+import app.morphe.patcher.InstructionLocation.MatchAfterWithin
+import app.morphe.patcher.checkCast
+import app.morphe.patcher.methodCall
+import app.morphe.patches.shared.mapping.ResourceType
 import app.morphe.patcher.literal
 import app.morphe.patcher.opcode
+import app.morphe.patcher.string
+import app.morphe.patches.shared.mapping.resourceLiteral
 import app.morphe.patches.youtube.utils.resourceid.appRelatedEndScreenResults
 import app.morphe.patches.youtube.utils.resourceid.fullScreenEngagementPanel
 import app.morphe.patches.youtube.utils.resourceid.playerVideoTitleView
 import app.morphe.patches.youtube.utils.resourceid.quickActionsElementContainer
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
+
+/**
+ * 19.46+
+ */
+internal object OpenVideosFullscreenPortraitFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("L", "Lj$/util/Optional;"),
+    filters = listOf(
+        opcode(Opcode.MOVE_RESULT), // Conditional check to modify.
+        // Open videos fullscreen portrait feature flag.
+        literal(45666112L, location = MatchAfterWithin(5)), // Cannot be more than 5.
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterWithin(10)),
+    )
+)
+
+internal object AdPlayerFullscreenFingerprint : Fingerprint(
+    filters = listOf(
+        string("Ad player fullscreen state entity is null in onSuccess on exit"),
+        methodCall(
+            name = "getFullscreenForced", // Oddly only this method is not obfuscated.
+            returnType = "Ljava/lang/Boolean;",
+            parameters = listOf()
+        ),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf(),
+            returnType = "V",
+            location = MatchAfterWithin(10)
+        )
+    )
+)
 
 internal object BroadcastReceiverFingerprint : Fingerprint(
     returnType = "V",
@@ -57,7 +94,7 @@ internal object PlayerTitleViewFingerprint : Fingerprint(
     ),
 )
 
-internal object QuickActionsElementSyntheticFingerprint : Fingerprint(
+internal object LegacyQuickActionsElementSyntheticFingerprint : Fingerprint(
     returnType = "V",
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     parameters = listOf("Landroid/view/View;"),
@@ -95,5 +132,19 @@ internal object YouTubePlayerViewOnLayoutFingerprint : Fingerprint(
     parameters = listOf("Z", "I", "I", "I", "I"),
     filters = listOf(
         opcode(Opcode.RETURN_VOID)
+    )
+)
+
+/**
+ * Matches the method that processes the quick actions container view.
+ * Used to inject a top margin adjustment into the quick actions bar.
+ */
+internal object QuickActionsElementSyntheticFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf("Landroid/view/View;"),
+    filters = listOf(
+        resourceLiteral(ResourceType.ID, "quick_actions_element_container"),
+        checkCast("Landroid/view/ViewGroup;", location = MatchAfterWithin(10))
     )
 )
