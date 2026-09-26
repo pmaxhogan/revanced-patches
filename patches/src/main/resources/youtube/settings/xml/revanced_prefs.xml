@@ -453,6 +453,9 @@
             <SwitchPreference android:title="@string/revanced_hide_player_control_buttons_background_title" android:key="revanced_hide_player_control_buttons_background" android:summaryOn="@string/revanced_hide_player_control_buttons_background_summary_on" android:summaryOff="@string/revanced_hide_player_control_buttons_background_summary_off" />
             <app.morphe.extension.shared.settings.preference.SliderPreference android:title="@string/morphe_player_control_buttons_background_opacity_title" android:key="morphe_player_control_buttons_background_opacity" android:summary="@string/morphe_player_control_buttons_background_opacity_summary" android:inputType="number" />SETTINGS: HIDE_PLAYER_BUTTONS -->
 
+            <!-- SETTINGS: RESTORE_OLD_PLAYER_BUTTONS
+            <SwitchPreference android:title="@string/morphe_restore_old_player_buttons_title" android:key="morphe_restore_old_player_buttons" android:summary="@string/morphe_restore_old_player_buttons_summary" />SETTINGS: RESTORE_OLD_PLAYER_BUTTONS -->
+
             <!-- SETTINGS: OVERLAY_BUTTONS
             <PreferenceCategory android:title="@string/revanced_overlay_button" android:layout="@layout/revanced_settings_preferences_category" />
             <SwitchPreference android:title="@string/revanced_overlay_button_speed_dialog_title" android:key="revanced_overlay_button_speed_dialog" android:summary="@string/revanced_overlay_button_speed_dialog_summary" />
@@ -688,6 +691,9 @@
 
             <!-- SETTINGS: MINIPLAYER_TYPE_MODERN
             <SwitchPreference android:title="@string/revanced_miniplayer_hide_subtext_title" android:key="revanced_miniplayer_hide_subtext" android:summaryOn="@string/revanced_miniplayer_hide_subtext_summary_on" android:summaryOff="@string/revanced_miniplayer_hide_subtext_summary_off" />SETTINGS: MINIPLAYER_TYPE_MODERN -->
+
+            <!-- SETTINGS: MINIPLAYER_HIDE_TITLE
+            <SwitchPreference android:title="@string/revanced_miniplayer_hide_title_title" android:key="revanced_miniplayer_hide_title" />SETTINGS: MINIPLAYER_HIDE_TITLE -->
 
             <!-- SETTINGS: MINIPLAYER_WIDTH_DIP
             <app.morphe.extension.shared.settings.preference.SliderPreference android:title="@string/revanced_miniplayer_width_dip_title" android:key="revanced_miniplayer_width_dip" android:summary="@string/revanced_miniplayer_width_dip_summary" android:inputType="number" />SETTINGS: MINIPLAYER_WIDTH_DIP -->

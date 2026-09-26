@@ -31,6 +31,7 @@ import androidx.annotation.Nullable;
 import com.google.protobuf.MessageLite;
 
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -49,8 +50,10 @@ import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.Accessibility;
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.AccessibilityData;
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.ButtonRenderer;
+import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.ButtonRendererAccessibilityData;
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.Buttons;
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemRenderer;
+import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.RendererAccessibilityData;
 import app.morphe.extension.youtube.innertube.IconOuterClass.Icon;
 import app.morphe.extension.youtube.innertube.IconOuterClass.YTIconType;
 import app.morphe.extension.youtube.patches.theme.ThemePatch.StatusBarTranslucency;
@@ -58,7 +61,7 @@ import app.morphe.extension.youtube.settings.Settings;
 import app.morphe.extension.youtube.shared.RootView;
 import app.morphe.extension.youtube.utils.ExtendedUtils;
 
-@SuppressWarnings("unused")
+@SuppressWarnings({"deprecation", "unused"})
 public final class NavigationButtonsPatch {
 
     private static final boolean ENABLE_NARROW_NAVIGATION_BUTTONS
@@ -102,6 +105,23 @@ public final class NavigationButtonsPatch {
             Settings.SHOW_TOOLBAR_SETTINGS_BUTTON_TYPE_IN_YOU_TAB.get();
 
     private static final String SETTINGS_BUTTON_ENUM_NAME = "SETTINGS_CAIRO";
+
+    private static final String[] CREATE_BUTTON_ENUMS = {
+            "CREATION_ENTRY", // Phone layout.
+            "FAB_CAMERA" // Tablet layout.
+    };
+
+    private static final String[] NOTIFICATION_BUTTON_ENUMS = {
+            "TAB_ACTIVITY_CAIRO", // New layout.
+            "TAB_ACTIVITY" // Old layout.
+    };
+
+    private static final boolean HIDE_TOOLBAR_CREATE_BUTTON =
+            Settings.HIDE_TOOLBAR_CREATE_BUTTON.get();
+    private static final boolean HIDE_TOOLBAR_NOTIFICATION_BUTTON =
+            Settings.HIDE_TOOLBAR_NOTIFICATION_BUTTON.get();
+    private static final boolean HIDE_TOOLBAR_SEARCH_BUTTON =
+            Settings.HIDE_TOOLBAR_SEARCH_BUTTON.get();
 
     private static Object pivotBarSettingsRenderer;
     private static Object pivotBarSearchRenderer;
@@ -494,6 +514,36 @@ public final class NavigationButtonsPatch {
     }
 
     /**
+     * Injection point. Removes toolbar buttons hidden by the user before YouTube lays them out.
+     */
+    public static void modifyToolbarButtons(List<MessageLite> rawButtonList) {
+        if (rawButtonList == null || rawButtonList.isEmpty()) return;
+
+        try {
+            for (int i = rawButtonList.size() - 1; i >= 0; i--) {
+                MessageLite msg = rawButtonList.get(i);
+                Buttons buttons = Buttons.parseFrom(msg.toByteArray());
+
+                if (buttons.hasButtonRenderer() && buttons.getButtonRenderer().hasIcon()) {
+                    String iconName = buttons.getButtonRenderer().getIcon().getYtIconType().name();
+
+                    boolean isCreate = StringUtils.equalsAny(iconName, CREATE_BUTTON_ENUMS);
+                    boolean isNotification = StringUtils.equalsAny(iconName, NOTIFICATION_BUTTON_ENUMS);
+                    boolean isSearch = NavigationButton.SEARCH.ytEnumNames.contains(iconName);
+
+                    if ((HIDE_TOOLBAR_CREATE_BUTTON && isCreate) ||
+                            (HIDE_TOOLBAR_NOTIFICATION_BUTTON && isNotification) ||
+                            (HIDE_TOOLBAR_SEARCH_BUTTON && isSearch)) {
+                        rawButtonList.remove(i);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "Failed to modify toolbar buttons", ex);
+        }
+    }
+
+    /**
      * Clones a native toolbar button and changes only its icon and accessibility metadata.
      * Unknown proto fields are retained so the button remains compatible across versions.
      */
@@ -508,8 +558,18 @@ public final class NavigationButtonsPatch {
                 Buttons buttons = Buttons.parseFrom(message.toByteArray());
                 if (buttons.hasButtonRenderer() && buttons.getButtonRenderer().hasIcon()) {
                     ButtonRenderer.Builder renderer = buttons.getButtonRenderer().toBuilder();
-                    renderer.clearButtonRendererAccessibilityData();
-                    renderer.clearRendererAccessibilityData();
+
+                    // Replace the accessibility label of the copied button.
+                    ButtonRendererAccessibilityData accessibilityData = ButtonRendererAccessibilityData
+                            .newBuilder()
+                            .setLabel(ResourceUtils.getString("revanced_change_start_page_entry_settings"))
+                            .build();
+                    renderer.setButtonRendererAccessibilityData(accessibilityData);
+                    renderer.setRendererAccessibilityData(RendererAccessibilityData.newBuilder()
+                            .setButtonRendererAccessibilityData(accessibilityData)
+                            .build());
+
+                    renderer.clearIcon();
                     renderer.setIcon(
                             Icon.newBuilder()
                                     .setYtIconType(YTIconType.SETTINGS_CAIRO)

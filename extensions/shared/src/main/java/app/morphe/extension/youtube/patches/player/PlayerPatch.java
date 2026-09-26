@@ -55,6 +55,7 @@ import app.morphe.extension.youtube.patches.utils.InitializationPatch;
 import app.morphe.extension.youtube.patches.utils.PatchStatus;
 import app.morphe.extension.youtube.patches.video.VideoQualityPatch.VideoQualityInterface;
 import app.morphe.extension.youtube.settings.Settings;
+import app.morphe.extension.youtube.settings.YouTubeActivityHook;
 import app.morphe.extension.youtube.shared.EngagementPanel;
 import app.morphe.extension.youtube.shared.PlayerType;
 import app.morphe.extension.youtube.shared.RootView;
@@ -63,6 +64,8 @@ import app.morphe.extension.youtube.utils.VideoUtils;
 
 @SuppressWarnings({"unused", "deprecation"})
 public class PlayerPatch {
+    private static final int FULLSCREEN_HIDDEN_Y_OFFSET = 100000;
+
     private static final IntegerSetting quickActionsMarginTopSetting = Settings.QUICK_ACTIONS_TOP_MARGIN;
 
     private static final int CONTROL_BUTTONS_BACKGROUND_OPACITY =
@@ -111,7 +114,14 @@ public class PlayerPatch {
     private static final int DIVIDER_ATTRIBUTES_COLOR_SYSTEM_DEFAULT = -16777216;
 
     public static boolean bypassAmbientModeRestrictions(boolean original) {
-        return (!Settings.BYPASS_AMBIENT_MODE_RESTRICTIONS.get() && original) || Settings.DISABLE_AMBIENT_MODE.get();
+        return !Settings.BYPASS_AMBIENT_MODE_RESTRICTIONS.get() && original;
+    }
+
+    /**
+     * Disable Ambient mode.
+     */
+    public static boolean disableAmbientMode(boolean original) {
+        return !Settings.DISABLE_AMBIENT_MODE.get() && original;
     }
 
     public static boolean disableAmbientModeInFullscreen() {
@@ -439,14 +449,29 @@ public class PlayerPatch {
     public static ImageView hideFullscreenButton(ImageView imageView) {
         final boolean hideView = Settings.HIDE_PLAYER_FULLSCREEN_BUTTON.get();
 
-        Utils.hideViewUnderCondition(hideView, imageView);
-        if (!hideView && imageView != null) {
-            Drawable background = imageView.getBackground();
-            if (background != null) {
-                imageView.setBackground(applyControlButtonsBackgroundOpacity(background));
+        if (!hideView) {
+            if (imageView != null) {
+                Drawable background = imageView.getBackground();
+                if (background != null) {
+                    imageView.setBackground(applyControlButtonsBackgroundOpacity(background));
+                }
             }
+            return imageView;
         }
-        return hideView ? null : imageView;
+
+        if (imageView == null) {
+            return null;
+        }
+
+        if (!YouTubeActivityHook.useBoldIcons(true)) {
+            imageView.setVisibility(View.GONE);
+            return null;
+        }
+
+        // Cannot remove the button because the bold overlay player buttons rely on draw updates
+        // to control fade in/out. Move it offscreen instead.
+        imageView.setY(imageView.getY() - FULLSCREEN_HIDDEN_Y_OFFSET);
+        return imageView;
     }
 
     public static boolean hidePreviousNextButton(boolean previousOrNextButtonVisible) {
@@ -496,6 +521,7 @@ public class PlayerPatch {
             // Each button is an ImageView with a background set to another drawable.
             if (Settings.HIDE_PLAYER_CONTROL_BUTTONS_BACKGROUND.get()) {
                 forEachImageViewRecursive(rootView, imageView -> imageView.setBackground(null));
+                stylePillBackgrounds(rootView);
             } else if (CONTROL_BUTTONS_BACKGROUND_OPACITY_CHANGED) {
                 forEachImageViewRecursive(rootView, imageView -> {
                     Drawable background = imageView.getBackground();
@@ -562,6 +588,12 @@ public class PlayerPatch {
 
             Drawable background = pill.getBackground();
             if (background == null) return;
+
+            if (Settings.HIDE_PLAYER_CONTROL_BUTTONS_BACKGROUND.get()) {
+                pill.setBackground(null);
+                backgroundSnapshot = null;
+                return;
+            }
 
             // A null state cannot be tracked, so fall through and rely on mutate() being idempotent.
             Drawable.ConstantState state = background.getConstantState();
