@@ -20,7 +20,7 @@ GmsCore の電池の最適化を無効にしても、バッテリーの使用に
     <string name="gms_core_settings_summary">通知を受け取るには、Cloud Messaging を有効にしてください。</string>
     <string name="gms_core_settings_title">GmsCore の設定を開く</string>
     <string name="gms_core_toast_not_installed_message">GmsCore がインストールされていません。インストールしてください。</string>
-    <string name="morphe_ads_channel_whitelist_title">広告のチャンネル ホワイトリスト</string>
+    <string name="morphe_ads_channel_whitelist_title">広告のチャンネルホワイトリスト</string>
     <string name="morphe_aislist_submit_already_blocklisted">このチャンネルはすでに AiSList のブロックリストに登録されています。</string>
     <string name="morphe_aislist_submit_already_warnlisted">このチャンネルはすでに AiSList の警告リストに登録されています。</string>
     <string name="morphe_aislist_submit_category_title">AI チャンネルを報告</string>
@@ -206,8 +206,8 @@ YouTube Premium に加入している場合、この設定は必要ない可能�
     <string name="morphe_replace_music_with_youtube_summary_off">共有リンクを music.youtube.com に変更します。</string>
     <string name="morphe_replace_music_with_youtube_summary_on">共有リンクを youtube.com に変更します。</string>
     <string name="morphe_replace_music_with_youtube_title">共有リンクを youtube.com に変更</string>
-    <string name="morphe_restore_old_player_buttons_summary">動画プレーヤーのコントロールのデザインを、現在の太字デザインから以前の細字デザインに戻します</string>
-    <string name="morphe_restore_old_player_buttons_title">以前のプレーヤーボタンのデザインに戻す</string>
+    <string name="morphe_restore_old_player_buttons_summary">プレーヤーのコントロールのデザインを、現在の太字デザインから従来の細字デザインに戻します。</string>
+    <string name="morphe_restore_old_player_buttons_title">プレーヤーのボタンスタイルを古いデザインに復元</string>
     <string name="morphe_sanitize_sharing_links_summary_off">共有リンクから追跡パラメータを削除します。</string>
     <string name="morphe_sanitize_sharing_links_summary_on">共有リンクから追跡パラメータを削除します。</string>
     <string name="morphe_sanitize_sharing_links_title">共有リンクのクリーンアップ</string>
@@ -234,7 +234,7 @@ YouTube Premium に加入している場合、この設定は必要ない可能�
     <string name="morphe_splash_screen_animation_style_entry_2">色</string>
     <string name="morphe_splash_screen_animation_style_entry_3">白黒</string>
     <string name="morphe_splash_screen_animation_style_title">スプラッシュ画面のスタイル</string>
-    <string name="morphe_spoof_video_streams_about_end_early">• 再生が 1 秒早く終了する場合がある</string>
+    <string name="morphe_spoof_video_streams_about_end_early">・動画が 1 秒早く終了する可能性があります。</string>
     <string name="morphe_spoof_video_streams_about_js">・難読化の解除に失敗した場合、再生に失敗する可能性があります。</string>
     <string name="morphe_spoof_video_streams_about_no_audio_tracks">・[音声トラック] メニューは表示されません。</string>
     <string name="morphe_spoof_video_streams_about_no_av1">・AV1 コーデックは利用できません。</string>
@@ -1227,7 +1227,7 @@ DeArrow について詳しく知るには、ここをタップしてください
     <string name="revanced_hide_mix_playlists_title">ミックスリストを非表示</string>
     <string name="revanced_hide_more_button_summary_off">さらに表示 (⋯) ボタンを非表示にします。</string>
     <string name="revanced_hide_more_button_summary_on">さらに表示 (⋯) ボタンを非表示にします。</string>
-    <string name="revanced_hide_more_button_title">Hide More button</string>
+    <string name="revanced_hide_more_button_title">さらに表示 (⋯) ボタンを非表示</string>
     <string name="revanced_hide_movie_shelf_summary_off">「YouTube の映画とテレビ番組」欄を非表示にします。</string>
     <string name="revanced_hide_movie_shelf_summary_on">「YouTube の映画とテレビ番組」欄を非表示にします。</string>
     <string name="revanced_hide_movie_shelf_title">映画欄を非表示</string>
@@ -2774,8 +2774,8 @@ JavaScript クライアントの中では、「TV Simply」が推奨されます
     <string name="revanced_vot_oauth_token_summary">ライブ音声に必要です。</string>
     <string name="revanced_vot_original_audio_volume_summary">翻訳再生時のオリジナル動画の音量です (0 ~ 100)。デフォルト値: 20</string>
     <string name="revanced_vot_original_audio_volume_title">元の音声の音量</string>
-    <string name="revanced_vot_pause_video_while_preparing_translation_summary_off">翻訳された音声の準備ができるまで、動画を一時停止します。</string>
-    <string name="revanced_vot_pause_video_while_preparing_translation_summary_on">新しい動画は一時停止状態で始まり、翻訳された音声の準備が完了すると再生が再開されます。</string>
+    <string name="revanced_vot_pause_video_while_preparing_translation_summary_off">翻訳が要求されると動画は一時停止し、翻訳された音声が準備できると再生が再開されます。</string>
+    <string name="revanced_vot_pause_video_while_preparing_translation_summary_on">翻訳が要求されると動画は一時停止し、翻訳された音声が準備できると再生が再開されます。</string>
     <string name="revanced_vot_pause_video_while_preparing_translation_title">翻訳の準備中に動画を一時停止</string>
     <string name="revanced_vot_playback_error">翻訳音声を再生できませんでした</string>
     <string name="revanced_vot_proxy_url_fetch_failed">VOT ワーカープロキシホストの取得に失敗しました。</string>
