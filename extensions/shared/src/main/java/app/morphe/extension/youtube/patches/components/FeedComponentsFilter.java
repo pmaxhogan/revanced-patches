@@ -62,6 +62,7 @@ public final class FeedComponentsFilter extends Filter {
     private final StringFilterGroup carouselShelves;
     private final StringFilterGroup chipBar;
     private final StringFilterGroup chipsShelf;
+    private final StringFilterGroup compactChannel;
     private final StringFilterGroup communityPosts;
     private final StringFilterGroup expandableCard;
     private final ByteArrayFilterGroup productCardBuffer;
@@ -71,6 +72,8 @@ public final class FeedComponentsFilter extends Filter {
     private final ByteArrayFilterGroup movieShelfBuffer;
     private final StringFilterGroup inviteToMessageCard;
     private final ByteArrayFilterGroup inviteToMessageCardBuffer;
+    private final StringFilterGroup liveStream;
+    private final ByteArrayFilterGroup liveStreamBuffer;
     private final StringFilterGroup videoLabels;
     private final ByteArrayFilterGroupList videoLabelsGroupList = new ByteArrayFilterGroupList();
     private final StringFilterGroup videoRecommendationLabels;
@@ -183,6 +186,20 @@ public final class FeedComponentsFilter extends Filter {
                 "connections_inbox_zero_state"
         );
 
+        // Feed and search result items.
+        liveStream = new StringFilterGroup(
+                Settings.HIDE_LIVE_STREAMS,
+                "video_lockup_with_attachment.e"
+        );
+
+        // Icon of the 'LIVE' thumbnail badge. Only videos that are live now have it,
+        // past streams ('Streamed 2 months ago') do not.
+        liveStreamBuffer = new ByteArrayFilterGroup(
+                null,
+                "yt_outline_live_black",
+                "yt_outline_experimental_live_black"
+        );
+
         addIdentifierCallbacks(
                 chipsShelf,
                 communityPosts,
@@ -190,7 +207,8 @@ public final class FeedComponentsFilter extends Filter {
                 feedSearchBar,
                 movieShelfIdentifier,
                 ticketShelfIdentifier,
-                inviteToMessageCard
+                inviteToMessageCard,
+                liveStream
         );
 
         // Paths.
@@ -214,9 +232,9 @@ public final class FeedComponentsFilter extends Filter {
                 "button.e"
         );
 
-        final StringFilterGroup compactChannelCommunityButton = new StringFilterGroup(
-                Settings.HIDE_COMMUNITY_BUTTON,
-                "compact_channel$FEcommunity"
+        compactChannel = new StringFilterGroup(
+                Settings.HIDE_CHANNEL_BUTTONS,
+                "compact_channel.e"
         );
 
         final StringFilterGroup membersShelf = new StringFilterGroup(
@@ -368,7 +386,7 @@ public final class FeedComponentsFilter extends Filter {
                 carouselShelves,
                 channelProfileSubscribeButton,
                 chipBar,
-                compactChannelCommunityButton,
+                compactChannel,
                 expandableCard,
                 forYouShelf,
                 imageShelf,
@@ -523,6 +541,17 @@ public final class FeedComponentsFilter extends Filter {
                 button.getMatchedIndex() + button.getMatchedLength()).isFiltered();
     }
 
+    /**
+     * Only the root lockup holds the whole item buffer. Its nested components share
+     * a common icon list that also contains the LIVE badge, so checking them would
+     * cause false positives.
+     *
+     * @return If the path is the root of a feed item: {@code identifier|hash|CellType|}.
+     */
+    private static boolean isLockupRoot(CharSequence path) {
+        return StringUtils.endsWith(path, "|CellType|");
+    }
+
     @Override
     public boolean isFiltered(String path, String accessibility, String allValue, byte[] buffer,
                               StringFilterGroup matchedGroup, FilterContentType contentType, int contentIndex) {
@@ -536,6 +565,10 @@ public final class FeedComponentsFilter extends Filter {
 
         if (matchedGroup == chipsShelf) {
             return NavigationButton.getSelectedNavigationButton() != NavigationButton.LIBRARY;
+        }
+
+        if (matchedGroup == compactChannel) {
+            return StringUtils.contains(path, "button.e");
         }
 
         if (matchedGroup == communityPosts) {
@@ -601,6 +634,12 @@ public final class FeedComponentsFilter extends Filter {
 
             // Check the navigation button last and only after all buffer checks pass.
             return NavigationButton.getSelectedNavigationButton() == NavigationButton.NOTIFICATIONS;
+        }
+
+        if (matchedGroup == liveStream) {
+            // Only check the whole lockup. The buffers of its nested components include
+            // a shared list of icon names that also has the 'LIVE' badge icon.
+            return isLockupRoot(path) && liveStreamBuffer.check(buffer).isFiltered();
         }
 
         if (matchedGroup == videoLabels) {
@@ -698,13 +737,15 @@ public final class FeedComponentsFilter extends Filter {
                         // The header keeps the space of the subscribe button if it's removed,
                         // so it's hidden by the Litho filter.
                         hasHiddenSubscribeButton = Settings.HIDE_SUBSCRIBE_BUTTON_IN_CHANNEL_PAGE.get();
-                    } else if (ProtoNode.field(fields, BUTTON_VIEW_MODEL_FIELD) == null) {
-                        continue;
-                    } else if (isPageHeaderButtonHidden(fields)) {
-                        button.remove();
-                        modified = true;
                     } else {
-                        visibleButtons++;
+                        if (ProtoNode.field(fields, BUTTON_VIEW_MODEL_FIELD) != null) {
+                            if (isPageHeaderButtonHidden(fields)) {
+                                button.remove();
+                                modified = true;
+                            } else {
+                                visibleButtons++;
+                            }
+                        }
                     }
                 }
 

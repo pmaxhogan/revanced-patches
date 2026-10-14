@@ -58,10 +58,11 @@ import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.patches.FullscreenVideoScalePatch.VideoScaleMode;
 import app.morphe.extension.youtube.patches.misc.BackgroundPlaybackPatch.AutoPauseOnLockMode;
 import app.morphe.extension.youtube.patches.PlaybackInFeedsPatch;
-import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.DeArrowAvailability;
-import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.StillImagesAvailability;
-import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.ThumbnailOption;
-import app.morphe.extension.youtube.patches.alternativethumbnails.AlternativeThumbnailsPatch.ThumbnailStillTime;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowPatch.DeArrowAvailability;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowPatch.DeArrowThumbnailsAvailability;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowPatch.StillImagesAvailability;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowPatch.ThumbnailOption;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowPatch.ThumbnailStillTime;
 import app.morphe.extension.youtube.patches.components.FeedComponentsFilter;
 import app.morphe.extension.youtube.patches.general.ChangeFormFactorPatch.FormFactor;
 import app.morphe.extension.youtube.patches.general.ChangeFormFactorPatch.TabletLayoutInPlayerAvailability;
@@ -152,8 +153,7 @@ public class Settings extends SharedYouTubeSettings {
         };
     }
 
-    public static final EnumSetting<ClientType> SPOOF_VIDEO_STREAMS_CLIENT_TYPE =
-            new EnumSetting<>("morphe_spoof_video_streams_client_type", ClientType.VISIONOS_1_02, true, parent(SPOOF_VIDEO_STREAMS));
+    public static final EnumSetting<ClientType> SPOOF_VIDEO_STREAMS_CLIENT_TYPE = new EnumSetting<>("morphe_spoof_video_streams_client_type", ClientType.VISIONOS_1_02, true, parent(SPOOF_VIDEO_STREAMS));
     public static final BooleanSetting FORCE_AVC_CODEC = new BooleanSetting(
             "morphe_force_avc_codec",
             FALSE,
@@ -229,21 +229,26 @@ public class Settings extends SharedYouTubeSettings {
 
 
     // PreferenceScreen: Alternative Thumbnails
-    public static final EnumSetting<ThumbnailOption> ALT_THUMBNAIL_HOME = new EnumSetting<>("revanced_alt_thumbnail_home", ThumbnailOption.DEARROW);
-    public static final EnumSetting<ThumbnailOption> ALT_THUMBNAIL_PLAYER = new EnumSetting<>("revanced_alt_thumbnail_player", ThumbnailOption.DEARROW);
-    public static final EnumSetting<ThumbnailOption> ALT_THUMBNAIL_SEARCH = new EnumSetting<>("revanced_alt_thumbnail_search", ThumbnailOption.DEARROW);
-    public static final EnumSetting<ThumbnailOption> ALT_THUMBNAIL_SUBSCRIPTIONS = new EnumSetting<>("revanced_alt_thumbnail_subscriptions", ThumbnailOption.DEARROW);
-    public static final EnumSetting<ThumbnailOption> ALT_THUMBNAIL_LIBRARY = new EnumSetting<>("revanced_alt_thumbnail_library", ThumbnailOption.DEARROW);
-    public static final StringSetting ALT_THUMBNAIL_DEARROW_API_URL = new StringSetting("revanced_alt_thumbnail_dearrow_api_url",
-            "https://dearrow-thumb.ajay.app/api/v1/getThumbnail", true, new DeArrowAvailability());
-    public static final BooleanSetting ALT_THUMBNAIL_DEARROW_CONNECTION_TOAST = new BooleanSetting("revanced_alt_thumbnail_dearrow_connection_toast", FALSE, new DeArrowAvailability());
-    public static final EnumSetting<ThumbnailStillTime> ALT_THUMBNAIL_STILLS_TIME = new EnumSetting<>("revanced_alt_thumbnail_stills_time", ThumbnailStillTime.MIDDLE, new StillImagesAvailability());
-    public static final BooleanSetting ALT_THUMBNAIL_STILLS_FAST = new BooleanSetting("revanced_alt_thumbnail_stills_fast", FALSE, new StillImagesAvailability());
+    // Keep existing thumbnail keys so saved thumbnail choices survive the DeArrow rename.
+    public static final BooleanSetting DEARROW_TITLES = new BooleanSetting("morphe_dearrow_titles", FALSE, true);
+    public static final BooleanSetting DEARROW_TITLES_ICON = new BooleanSetting("morphe_dearrow_titles_icon", TRUE, true, parent(DEARROW_TITLES));
+    public static final BooleanSetting DEARROW_CASUAL_MODE = new BooleanSetting("morphe_dearrow_casual_mode", FALSE, true, parent(DEARROW_TITLES));
+    public static final IntegerSetting DEARROW_CASUAL_MODE_MIN_VOTES = new IntegerSetting("morphe_dearrow_casual_mode_min_votes", 2, true, parentsAll(DEARROW_TITLES, DEARROW_CASUAL_MODE));
+    public static final EnumSetting<ThumbnailOption> DEARROW_THUMBNAIL_HOME = new EnumSetting<>("revanced_alt_thumbnail_home", ThumbnailOption.DEARROW);
+    public static final EnumSetting<ThumbnailOption> DEARROW_THUMBNAIL_PLAYER = new EnumSetting<>("revanced_alt_thumbnail_player", ThumbnailOption.DEARROW);
+    public static final EnumSetting<ThumbnailOption> DEARROW_THUMBNAIL_SEARCH = new EnumSetting<>("revanced_alt_thumbnail_search", ThumbnailOption.DEARROW);
+    public static final EnumSetting<ThumbnailOption> DEARROW_THUMBNAIL_SUBSCRIPTIONS = new EnumSetting<>("revanced_alt_thumbnail_subscriptions", ThumbnailOption.DEARROW);
+    public static final EnumSetting<ThumbnailOption> DEARROW_THUMBNAIL_LIBRARY = new EnumSetting<>("revanced_alt_thumbnail_library", ThumbnailOption.DEARROW);
+    public static final StringSetting DEARROW_API_URL = new StringSetting("revanced_alt_thumbnail_dearrow_api_url",
+            "https://dearrow-thumb.ajay.app/api/v1/getThumbnail", true, new DeArrowThumbnailsAvailability());
+    public static final BooleanSetting DEARROW_CONNECTION_TOAST = new BooleanSetting("revanced_alt_thumbnail_dearrow_connection_toast", FALSE, new DeArrowAvailability());
+    public static final EnumSetting<ThumbnailStillTime> DEARROW_THUMBNAIL_STILLS_TIME = new EnumSetting<>("revanced_alt_thumbnail_stills_time", ThumbnailStillTime.MIDDLE, new StillImagesAvailability());
 
 
     // PreferenceScreen: Feed
     public static final BooleanSetting HIDE_ALBUM_CARDS = new BooleanSetting("revanced_hide_album_card", FALSE);
     public static final BooleanSetting HIDE_AUTO_DUBBED_LABEL = new BooleanSetting("morphe_hide_auto_dubbed_label", FALSE);
+    public static final BooleanSetting HIDE_CHANNEL_BUTTONS = new BooleanSetting("morphe_hide_channel_buttons", FALSE);
     public static final BooleanSetting HIDE_FEED_CAPTIONS_BUTTON = new BooleanSetting("revanced_hide_feed_captions_button", FALSE, true);
     public static final BooleanSetting HIDE_CHIPS_SHELF = new BooleanSetting("revanced_hide_chips_shelf", TRUE);
     public static final EnumSetting<FeedComponentsFilter.ExpandableCardStyle> HIDE_EXPANDABLE_CARD =
@@ -255,6 +260,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting HIDE_INVITE_TO_MESSAGE_CARD = new BooleanSetting("morphe_hide_invite_to_message_card", TRUE);
     public static final BooleanSetting HIDE_LATEST_POSTS = new BooleanSetting("revanced_hide_latest_posts", TRUE);
     public static final BooleanSetting HIDE_LATEST_VIDEOS_BUTTON = new BooleanSetting("revanced_hide_latest_videos_button", TRUE);
+    public static final BooleanSetting HIDE_LIVE_STREAMS = new BooleanSetting("morphe_hide_live_streams", FALSE);
     public static final BooleanSetting HIDE_MIX_PLAYLISTS = new BooleanSetting("revanced_hide_mix_playlists", FALSE);
     public static final BooleanSetting HIDE_MOVIE_SHELF = new BooleanSetting("revanced_hide_movie_shelf", FALSE);
     public static final BooleanSetting HIDE_NOTIFY_ME_BUTTON = new BooleanSetting("revanced_hide_notify_me_button", FALSE);
@@ -266,6 +272,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting HIDE_TICKET_SHELF = new BooleanSetting("revanced_hide_ticket_shelf", TRUE);
     public static final BooleanSetting HIDE_VIDEO_RECOMMENDATION_LABELS = new BooleanSetting("revanced_hide_video_recommendation_labels", TRUE);
     public static final BooleanSetting HIDE_SECTION_HEADER_IN_FEED = new BooleanSetting("revanced_hide_section_header_in_feed", FALSE, true);
+    public static final BooleanSetting DISABLE_AUTO_FEED_REFRESH = new BooleanSetting("morphe_disable_auto_feed_refresh", FALSE);
     public static final IntegerSetting PLAYBACK_IN_FEEDS = new IntegerSetting("morphe_playback_in_feeds", PlaybackInFeedsPatch.MODE_ALWAYS_ON, true);
     public static final IntegerSetting CUSTOM_DPI = new IntegerSetting("morphe_custom_dpi", 0,
             true, new SliderConfig(0, 1_000, 1, "dpi"));
@@ -418,6 +425,7 @@ public class Settings extends SharedYouTubeSettings {
     public static final BooleanSetting DISABLE_TRANSLUCENT_NAVIGATION_BAR = new BooleanSetting("revanced_disable_translucent_navigation_bar", FALSE, true);
     public static final BooleanSetting HIDE_NAVIGATION_BAR = new BooleanSetting("revanced_hide_navigation_bar", FALSE, true);
     public static final BooleanSetting DISABLE_AUTO_HIDE_NAVIGATION_BAR = new BooleanSetting("morphe_disable_auto_hide_navigation_bar", FALSE, true, parentInverted(HIDE_NAVIGATION_BAR));
+    public static final BooleanSetting DISABLE_ICON_ONLY_NAVIGATION_BUTTONS = new BooleanSetting("morphe_disable_icon_only_navigation_buttons", TRUE, true, parentInverted(HIDE_NAVIGATION_BAR));
     public static final BooleanSetting NAVIGATION_BAR_ANIMATIONS = new BooleanSetting("revanced_navigation_bar_animations", FALSE, true, parentInverted(HIDE_NAVIGATION_BAR));
     public static final BooleanSetting SHOW_SETTINGS_BUTTON = new BooleanSetting("revanced_show_settings_button", FALSE, true, parentInverted(HIDE_NAVIGATION_BAR));
     public static final BooleanSetting SHOW_SETTINGS_BUTTON_TYPE = new BooleanSetting("revanced_show_settings_button_type", FALSE, true, parent(SHOW_SETTINGS_BUTTON));
@@ -939,6 +947,7 @@ public class Settings extends SharedYouTubeSettings {
             true, new SliderConfig(1, 1_000, 1, ""), new SwipeActionAvailability(SwipeZoneAction.VOLUME));
     public static final FloatSetting SWIPE_BRIGHTNESS_VALUE = new FloatSetting("revanced_swipe_brightness_value", -1f);
 
+    public static final BooleanSetting VOLUME_BOOST = new BooleanSetting("morphe_volume_boost", FALSE, new SwipeActionAvailability(SwipeZoneAction.VOLUME));
     public static final IntegerSetting SWIPE_VOLUME_DISTANCE = new IntegerSetting("revanced_swipe_volume_distance", 100,
             true, new SliderConfig(1, 1_000, 1, "px"), new SwipeActionAvailability(SwipeZoneAction.VOLUME));
     public static final IntegerSetting SWIPE_BRIGHTNESS_DISTANCE = new IntegerSetting("revanced_swipe_brightness_distance", 100,
