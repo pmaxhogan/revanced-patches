@@ -230,7 +230,7 @@ public class Settings extends SharedYouTubeSettings {
 
     // PreferenceScreen: Alternative Thumbnails
     // Keep existing thumbnail keys so saved thumbnail choices survive the DeArrow rename.
-    public static final BooleanSetting DEARROW_TITLES = new BooleanSetting("morphe_dearrow_titles", FALSE, true);
+    public static final BooleanSetting DEARROW_TITLES = new BooleanSetting("morphe_dearrow_titles", TRUE, true);
     public static final BooleanSetting DEARROW_TITLES_ICON = new BooleanSetting("morphe_dearrow_titles_icon", TRUE, true, parent(DEARROW_TITLES));
     public static final BooleanSetting DEARROW_CASUAL_MODE = new BooleanSetting("morphe_dearrow_casual_mode", FALSE, true, parent(DEARROW_TITLES));
     public static final IntegerSetting DEARROW_CASUAL_MODE_MIN_VOTES = new IntegerSetting("morphe_dearrow_casual_mode_min_votes", 2, true, parentsAll(DEARROW_TITLES, DEARROW_CASUAL_MODE));
