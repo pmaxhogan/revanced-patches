@@ -45,6 +45,10 @@ internal enum class PatchList(
         "Change start page",
         "Adds an option to set which page the app opens in instead of the homepage."
     ),
+    COPY_TEXT(
+        "Copy text",
+        "Adds options to copy the video title and comments by tapping and holding them."
+    ),
     CUSTOM_SHORTS_ACTION_BUTTONS(
         "Custom Shorts action buttons",
         "Changes, at compile time, the icon of the action buttons of the Shorts player."
@@ -76,6 +80,10 @@ internal enum class PatchList(
     FORCE_ORIGINAL_AUDIO(
         "Force original audio",
         "Adds an option to disable audio tracks from being automatically enabled."
+    ),
+    PREFERRED_CAPTION_LANGUAGE(
+        "Preferred caption language",
+        "Adds an option to automatically select captions in your preferred language."
     ),
     DISABLE_FORCED_AUTO_CAPTIONS(
         "Disable forced auto captions",
@@ -204,6 +212,10 @@ internal enum class PatchList(
     OVERLAY_BUTTONS(
         "Overlay buttons",
         "Adds options to display useful overlay buttons in the video player."
+    ),
+    PICTURE_IN_PICTURE_BUTTON(
+        "Picture-in-picture button",
+        "Adds an option to display a picture-in-picture button in the video player."
     ),
     PLAYBACK_BUFFER(
         "Playback buffer",
