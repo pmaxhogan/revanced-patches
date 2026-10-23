@@ -19,7 +19,7 @@ internal enum class PatchList(
     ),
     AMBIENT_MODE_CONTROL(
         "Ambient mode control",
-        "Adds options to disable Ambient mode and to bypass Ambient mode restrictions."
+        "Forces Ambient mode on and adds options to bypass power saving restrictions for Ambient mode and disable it entirely or in fullscreen."
     ),
     BYPASS_IMAGE_REGION_RESTRICTIONS(
         "Bypass image region restrictions",
@@ -44,6 +44,11 @@ internal enum class PatchList(
     CHANGE_START_PAGE(
         "Change start page",
         "Adds an option to set which page the app opens in instead of the homepage."
+    ),
+    FEED_VIDEO_ACTIONS(
+        "Feed video actions",
+        "Adds a Watch later button to video thumbnails in feeds, " +
+                "and opens the video menu by tapping and holding anywhere on a video."
     ),
     COPY_TEXT(
         "Copy text",
@@ -189,9 +194,10 @@ internal enum class PatchList(
         "Override YouTube Music buttons",
         "Overrides YouTube Music buttons to open RVX Music or any compatible third-party client."
     ),
+    // Built-in downloader and offline library.
     HOOK_DOWNLOAD_ACTIONS(
         "Hook download actions",
-        "Adds support to download videos with an external downloader app using the in-app download button."
+        "Adds support to download videos with the built-in downloader or an external downloader app, and an offline library for downloaded videos."
     ),
     MINIPLAYER(
         "Miniplayer",
