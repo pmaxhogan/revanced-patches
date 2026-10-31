@@ -49,6 +49,7 @@ import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.youtube.patches.SaveToWatchLaterPatch;
 import app.morphe.extension.youtube.patches.FeedVideoActionsPatch;
 import app.morphe.extension.youtube.patches.PictureinPictureButtonPatch;
+import app.morphe.extension.youtube.patches.PostImageDownloadPatch;
 import app.morphe.extension.youtube.videoplayer.PictureinPictureButton;
 import app.morphe.extension.youtube.patches.components.PlayerFlyoutMenuFilter;
 import app.morphe.extension.youtube.patches.general.DownloadActionsPatch;
@@ -254,6 +255,15 @@ public final class FlyoutUtils {
         customItemTextRefs.clear();
 
         final String flyoutVideoId = DownloadActionsPatch.getFlyoutVideoId();
+
+        // Only added to the menus of posts with images.
+        if (PostImageDownloadPatch.ENABLED) {
+            nextButtonIndex = PostImageDownloadPatch.addFlyoutButton(
+                    flyoutPanel,
+                    nextButtonIndex,
+                    DownloadActionsPatch.getSenderView()
+            );
+        }
 
         boolean showKidsSaveToWatchLater = Settings.KIDS_SAVE_TO_WATCH_LATER_BUTTON.get()
                 && !flyoutVideoId.isEmpty()
@@ -540,12 +550,7 @@ public final class FlyoutUtils {
 
         if (flyoutPanel instanceof PopupWindow checkedPopupWindow) {
             popupWindow = checkedPopupWindow;
-            if (checkedPopupWindow.getContentView() instanceof FrameLayout frameLayout) {
-                if (frameLayout.getChildAt(0) instanceof ViewGroup viewGroup
-                        && viewGroup.getChildAt(0) instanceof LinearLayout checkedMenuContainer) {
-                    menuContainer = checkedMenuContainer;
-                }
-            }
+            menuContainer = getPopupMenuContainer(checkedPopupWindow.getContentView());
             isPopupWindow = true;
         } else if (flyoutPanel instanceof Dialog checkedDialog) {
             Window window = checkedDialog.getWindow();
@@ -575,6 +580,27 @@ public final class FlyoutUtils {
         }
 
         return new FlyoutMenuInfo(menuContainer, adjustedIndex, isPopupWindow, popupWindow);
+    }
+
+    /**
+     * The menu container of a popup menu is the first LinearLayout found by following the first child
+     * of the content view. Depending on the app version, the device and A/B tests, the content view is:
+     * the container itself, a view that places the container next to its anchor (also wrapped
+     * in a frame on phones), or a frame that sizes the popup window to the container.
+     *
+     * @return The menu container, or null if the content view is not a popup menu.
+     */
+    @Nullable
+    private static LinearLayout getPopupMenuContainer(@Nullable View contentView) {
+        View view = contentView;
+        // The deepest container is in a frame, inside the view that places it.
+        for (int depth = 0; depth < 3 && view != null; depth++) {
+            if (view instanceof LinearLayout linearLayout) {
+                return linearLayout;
+            }
+            view = view instanceof ViewGroup viewGroup ? viewGroup.getChildAt(0) : null;
+        }
+        return null;
     }
 
     @SuppressLint("ResourceType")
