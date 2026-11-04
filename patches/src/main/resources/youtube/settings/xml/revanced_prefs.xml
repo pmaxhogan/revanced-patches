@@ -110,21 +110,10 @@
             <SwitchPreference android:title="@string/revanced_navigation_bar_animations_title" android:key="revanced_navigation_bar_animations" android:summary="@string/revanced_navigation_bar_animations_summary" />SETTINGS: ANIMATED_NAVIGATION_BAR -->
 
             <!-- SETTINGS: HIDE_NAVIGATION_COMPONENTS
-            <SwitchPreference android:title="@string/revanced_hide_navigation_label_title" android:key="revanced_hide_navigation_label" android:summaryOn="@string/revanced_hide_navigation_label_summary_on" android:summaryOff="@string/revanced_hide_navigation_label_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_home_button_title" android:key="revanced_hide_navigation_home_button" android:summaryOn="@string/revanced_hide_navigation_home_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_home_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_shorts_button_title" android:key="revanced_hide_navigation_shorts_button" android:summaryOn="@string/revanced_hide_navigation_shorts_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_shorts_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_create_button_title" android:key="revanced_hide_navigation_create_button" android:summaryOn="@string/revanced_hide_navigation_create_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_create_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_subscriptions_button_title" android:key="revanced_hide_navigation_subscriptions_button" android:summaryOn="@string/revanced_hide_navigation_subscriptions_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_subscriptions_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_library_button_title" android:key="revanced_hide_navigation_library_button" android:summaryOn="@string/revanced_hide_navigation_library_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_library_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_hide_navigation_notifications_button_title" android:key="revanced_hide_navigation_notifications_button" android:summaryOn="@string/revanced_hide_navigation_notifications_button_summary_on" android:summaryOff="@string/revanced_hide_navigation_notifications_button_summary_off" />
-            <SwitchPreference android:title="@string/revanced_switch_create_with_notifications_button_title" android:key="revanced_switch_create_with_notifications_button" android:summaryOn="@string/revanced_switch_create_with_notifications_button_summary_on" android:summaryOff="@string/revanced_switch_create_with_notifications_button_summary_off" />SETTINGS: HIDE_NAVIGATION_COMPONENTS -->
+            <SwitchPreference android:title="@string/revanced_hide_navigation_label_title" android:key="revanced_hide_navigation_label" android:summaryOn="@string/revanced_hide_navigation_label_summary_on" android:summaryOff="@string/revanced_hide_navigation_label_summary_off" />SETTINGS: HIDE_NAVIGATION_COMPONENTS -->
 
             <!-- SETTINGS: ANIMATED_NAVIGATION_BAR
-            <SwitchPreference android:title="@string/revanced_show_settings_button_title" android:key="revanced_show_settings_button" android:summaryOn="@string/revanced_show_settings_button_summary_on" android:summaryOff="@string/revanced_show_settings_button_summary_off" />
             <SwitchPreference android:title="@string/revanced_show_settings_button_type_title" android:key="revanced_show_settings_button_type" android:summaryOn="@string/revanced_show_settings_button_type_summary_on" android:summaryOff="@string/revanced_show_settings_button_type_summary_off" />SETTINGS: ANIMATED_NAVIGATION_BAR -->
-
-            <!-- SETTINGS: SHOW_SEARCH_BUTTON
-            <SwitchPreference android:title="@string/revanced_show_search_button_title" android:key="revanced_show_search_button" android:summaryOn="@string/revanced_hide_toolbar_search_button_summary_off" android:summaryOff="@string/revanced_show_search_button_summary_off" />SETTINGS: SHOW_SEARCH_BUTTON -->
 
             <!-- SETTINGS: HIDE_NAVIGATION_COMPONENTS
             <PreferenceCategory android:title="@string/revanced_preference_category_experimental_flag" android:layout="@layout/revanced_settings_preferences_category"/>
@@ -214,7 +203,7 @@
         <app.morphe.extension.youtube.settings.preference.ForceOriginalAudioSwitchPreference android:title="@string/morphe_force_original_audio_title" android:key="morphe_force_original_audio" android:summaryOn="@string/morphe_force_original_audio_summary_on" android:summaryOff="@string/morphe_force_original_audio_summary_off" />SETTINGS: FORCE_ORIGINAL_AUDIO -->
 
         <!-- SETTINGS: PREFERRED_CAPTION_LANGUAGE
-        <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/morphe_preferred_caption_language_entries" android:title="@string/morphe_preferred_caption_language_title" android:summary="@string/morphe_preferred_caption_language_summary" android:key="morphe_preferred_caption_language" android:entryValues="@array/morphe_preferred_caption_language_entry_values" />SETTINGS: PREFERRED_CAPTION_LANGUAGE -->
+        <app.morphe.extension.youtube.settings.preference.CaptionLanguagePreference android:title="@string/morphe_preferred_caption_language_title" android:summary="@string/morphe_preferred_caption_language_summary" android:key="morphe_preferred_caption_language" />SETTINGS: PREFERRED_CAPTION_LANGUAGE -->
 
         <!-- SETTINGS: AUTO_CAPTIONS_STYLE
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_auto_captions_style_entries" android:title="@string/revanced_auto_captions_style_title" android:key="revanced_auto_captions_style" android:entryValues="@array/revanced_auto_captions_style_entry_values" />SETTINGS: AUTO_CAPTIONS_STYLE -->
@@ -249,13 +238,17 @@
 
         <!-- SETTINGS: COPY_TEXT
         <SwitchPreference android:title="@string/morphe_copy_video_title_title" android:key="morphe_copy_video_title" android:summary="@string/morphe_copy_video_title_summary" />
-        <SwitchPreference android:title="@string/morphe_copy_comments_title" android:key="morphe_copy_comments" android:summary="@string/morphe_copy_comments_summary" />SETTINGS: COPY_TEXT -->
+        <SwitchPreference android:title="@string/morphe_copy_comments_title" android:key="morphe_copy_comments" android:summary="@string/morphe_copy_comments_summary" />
+        <SwitchPreference android:title="@string/morphe_copy_select_text_title" android:key="morphe_copy_select_text" android:summary="@string/morphe_copy_select_text_summary" />SETTINGS: COPY_TEXT -->
 
         <!-- SETTINGS: FIX_TRANSCRIPT
         <SwitchPreference android:title="@string/revanced_fix_transcript_title" android:key="revanced_fix_transcript" android:summaryOn="@string/revanced_fix_transcript_summary_on" android:summaryOff="@string/revanced_fix_transcript_summary_off" />SETTINGS: FIX_TRANSCRIPT -->
 
         <!-- SETTINGS: HIDE_LAYOUT_COMPONENTS
         <SwitchPreference android:title="@string/morphe_hide_sync_button_title" android:key="morphe_hide_sync_button" />SETTINGS: HIDE_LAYOUT_COMPONENTS -->
+
+        <!-- SETTINGS: UNLOCK_QUEUE
+        <SwitchPreference android:title="@string/morphe_unlock_queue_title" android:key="morphe_unlock_queue" android:summary="@string/morphe_unlock_queue_summary" />SETTINGS: UNLOCK_QUEUE -->
 
         <!-- PREFERENCE_CATEGORY: GENERAL_EXPERIMENTAL_FLAGS
         <PreferenceCategory android:title="@string/revanced_preference_category_experimental_flag" android:layout="@layout/revanced_settings_preferences_category"/>PREFERENCE_CATEGORY: GENERAL_EXPERIMENTAL_FLAGS -->
@@ -569,6 +562,13 @@
             <SwitchPreference android:title="@string/revanced_disable_ambient_mode_in_fullscreen_title" android:key="revanced_disable_ambient_mode_in_fullscreen" android:summaryOn="@string/revanced_disable_ambient_mode_in_fullscreen_summary_on" android:summaryOff="@string/revanced_disable_ambient_mode_in_fullscreen_summary_off" />
         </PreferenceScreen>SETTINGS: AMBIENT_MODE_CONTROLS -->
 
+        <!-- SETTINGS: BILINGUAL_CAPTIONS
+        <PreferenceScreen android:key="morphe_captions_screen" android:title="@string/morphe_captions_screen_title" android:summary="@string/morphe_captions_screen_summary">
+            <app.morphe.extension.youtube.settings.preference.CaptionLanguagePreference android:key="morphe_secondary_caption_language" android:title="@string/morphe_secondary_caption_language_title" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:key="morphe_caption_scale" android:title="@string/morphe_caption_scale_title" android:summary="@string/morphe_caption_scale_summary" />
+            <SwitchPreference android:key="morphe_stable_caption_blocks" android:title="@string/morphe_stable_caption_blocks_title" android:summary="@string/morphe_stable_caption_blocks_summary" />
+        </PreferenceScreen>SETTINGS: BILINGUAL_CAPTIONS -->
+
         <!-- SETTINGS: PLAYER_COMPONENTS
         <PreferenceScreen android:title="@string/revanced_preference_screen_channel_bar_title" android:key="revanced_preference_screen_channel_bar" android:summary="@string/revanced_preference_screen_channel_bar_summary">
             <SwitchPreference android:title="@string/revanced_hide_join_button_in_channel_page_title" android:key="revanced_hide_join_button" android:summaryOn="@string/revanced_hide_join_button_in_channel_page_summary_on" android:summaryOff="@string/revanced_hide_join_button_in_channel_page_summary_off" />
@@ -603,10 +603,6 @@
 
             <!-- SETTINGS: PICTURE_IN_PICTURE_FLYOUT_BUTTON
             <SwitchPreference android:title="@string/morphe_pip_button_flyout_title" android:key="morphe_pip_button_flyout" />SETTINGS: PICTURE_IN_PICTURE_FLYOUT_BUTTON -->
-
-            <!-- SETTINGS: SAVE_TO_WATCH_LATER
-            <SwitchPreference android:title="@string/morphe_save_to_watch_later_kids_flyout_button_title" android:key="morphe_save_to_watch_later_kids_flyout_button" android:summary="@string/morphe_save_to_watch_later_kids_flyout_button_summary" />
-            <SwitchPreference android:title="@string/morphe_save_to_watch_later_shorts_flyout_button_title" android:key="morphe_save_to_watch_later_shorts_flyout_button" android:summary="@string/morphe_save_to_watch_later_shorts_flyout_button_summary" />SETTINGS: SAVE_TO_WATCH_LATER -->
 
             <!-- SETTINGS: CHANGE_PLAYER_FLYOUT_MENU_TOGGLE
             <SwitchPreference android:title="@string/revanced_change_player_flyout_menu_toggle_title" android:key="revanced_change_player_flyout_menu_toggle" android:summaryOn="@string/revanced_change_player_flyout_menu_toggle_summary_on" android:summaryOff="@string/revanced_change_player_flyout_menu_toggle_summary_off" />SETTINGS: CHANGE_PLAYER_FLYOUT_MENU_TOGGLE -->
@@ -686,6 +682,21 @@
             <SwitchPreference android:title="@string/revanced_disable_haptic_feedback_seek_undo_title" android:key="revanced_disable_haptic_feedback_seek_undo" android:summaryOn="@string/revanced_disable_haptic_feedback_chapters_summary_on" android:summaryOff="@string/revanced_disable_haptic_feedback_chapters_summary_off" />
             <SwitchPreference android:title="@string/revanced_disable_haptic_feedback_zoom_title" android:key="revanced_disable_haptic_feedback_zoom" android:summaryOn="@string/revanced_disable_haptic_feedback_chapters_summary_on" android:summaryOff="@string/revanced_disable_haptic_feedback_chapters_summary_off" />
         </PreferenceScreen>SETTINGS: DISABLE_HAPTIC_FEEDBACK -->
+
+        <!-- SETTINGS: TRANSLATE_LIVE_CHAT
+        <PreferenceScreen android:key="morphe_live_chat_translate_screen" android:title="@string/morphe_live_chat_translate_screen_title" android:summary="@string/morphe_live_chat_translate_screen_summary">
+            <SwitchPreference android:key="morphe_live_chat_translate" android:title="@string/morphe_live_chat_translate_title" android:summary="@string/morphe_live_chat_translate_summary" />
+            <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:key="morphe_live_chat_translate_language" android:title="@string/morphe_live_chat_translate_language_title" android:entries="@array/morphe_post_translate_language_entries" android:entryValues="@array/morphe_post_translate_language_entry_values" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:key="morphe_live_chat_translate_exclude" android:title="@string/morphe_live_chat_translate_exclude_title" android:summary="@string/morphe_live_chat_translate_exclude_summary" android:inputType="text" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:key="morphe_live_chat_translate_provider" android:title="@string/morphe_vot_translation_service_title" android:entries="@array/morphe_live_chat_translate_provider_entries" android:entryValues="@array/morphe_live_chat_translate_provider_entry_values" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:key="morphe_live_chat_translate_deepl_api_key" android:title="@string/morphe_live_chat_translate_deepl_api_key_title" android:summary="@string/morphe_live_chat_translate_deepl_api_key_summary" android:inputType="textPassword" />
+            <SwitchPreference android:key="morphe_live_chat_translate_copy_button" android:title="@string/morphe_live_chat_translate_copy_button_title" android:summary="@string/morphe_live_chat_translate_copy_button_summary" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:key="morphe_live_chat_translate_style" android:title="@string/morphe_live_chat_translate_style_title" android:entries="@array/morphe_live_chat_translate_style_entries" android:entryValues="@array/morphe_live_chat_translate_style_entry_values" android:dependency="morphe_live_chat_translate" />
+            <SwitchPreference android:key="morphe_live_chat_translate_bold" android:title="@string/morphe_live_chat_translate_bold_title" android:summary="@string/morphe_live_chat_translate_bold_summary" android:dependency="morphe_live_chat_translate" />
+            <SwitchPreference android:key="morphe_live_chat_translate_use_color" android:title="@string/morphe_live_chat_translate_use_color_title" android:summary="@string/morphe_live_chat_translate_use_color_summary" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.ColorPickerPreference android:key="morphe_live_chat_translate_color" android:title="@string/morphe_live_chat_translate_color_title" android:summary="@string/morphe_live_chat_translate_color_summary" android:inputType="textCapCharacters" android:dependency="morphe_live_chat_translate" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:key="morphe_live_chat_translate_max_length" android:title="@string/morphe_live_chat_translate_max_length_title" android:summary="@string/morphe_live_chat_translate_max_length_summary" android:dependency="morphe_live_chat_translate" />
+        </PreferenceScreen>SETTINGS: TRANSLATE_LIVE_CHAT -->
 
         <!-- SETTINGS: MINIPLAYER_COMPONENTS
         <PreferenceScreen android:title="@string/revanced_preference_screen_miniplayer_title" android:key="revanced_preference_screen_miniplayer" android:summary="@string/revanced_preference_screen_miniplayer_summary">SETTINGS: MINIPLAYER_COMPONENTS -->

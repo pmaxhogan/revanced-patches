@@ -30,6 +30,9 @@ import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
+import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patches.shared.misc.bridge.addBridge
+import app.morphe.util.findFreeRegister
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patches.shared.mainactivity.injectOnCreateMethodCall
@@ -84,9 +87,46 @@ import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
-import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
+
+/**
+ * Replaces an extension placeholder method, that takes the bytes of a navigation bar item proto,
+ * with code that creates the navigation bar item with the factory of the app.
+ * The constructor of the item also uses the decoded endpoint and tab identity of the proto,
+ * so the whole factory is used instead of copying the constructor arguments of another item.
+ */
+internal fun BytecodePatchContext.implementPivotBarItemBuilder(placeholder: Fingerprint) {
+    val factory = PivotBarRendererFingerprint.method
+    val pivotBarItemType = factory.parameterTypes.single().toString()
+    val placeholderMethod = placeholder.method
+
+    placeholder.classDef.apply {
+        methods.remove(placeholderMethod)
+        addBridge(
+            placeholderMethod.name,
+            listOf("[B"),
+            "Ljava/lang/Object;",
+            3,
+            """
+                # The endpoints are extensions, which are lost if parsed without the registry.
+                sget-object v0, $pivotBarItemType->a:$pivotBarItemType
+                invoke-static { }, Lcom/google/protobuf/ExtensionRegistryLite;->getGeneratedRegistry()Lcom/google/protobuf/ExtensionRegistryLite;
+                move-result-object v1
+                invoke-static { v0, p0, v1 }, ${parseByteArrayWithRegistryMethodRef.get()!!}
+                move-result-object v0
+                check-cast v0, $pivotBarItemType
+                invoke-static { v0 }, $factory
+                move-result-object v0
+                const/4 v1, 0x0
+                invoke-virtual { v0, v1 }, ${factory.returnType}->orElse(Ljava/lang/Object;)Ljava/lang/Object;
+                move-result-object v0
+                return-object v0
+            """,
+            placeholderMethod.accessFlags
+        )
+    }
+}
 
 private val navigationBarComponentsResourcePatch = resourcePatch(
     description = "navigationBarComponentsResourcePatch"
@@ -94,6 +134,8 @@ private val navigationBarComponentsResourcePatch = resourcePatch(
     dependsOn(versionCheckPatch)
 
     execute {
+        copyResources("youtube/navigationbuttons", ResourceGroup("drawable", "morphe_watch_later_selected.xml"))
+
         if (is_19_28_or_greater) {
             // Since I couldn't get the Cairo notification filled icon anywhere,
             // I just made it as close as possible.
@@ -171,7 +213,8 @@ val navigationBarComponentsPatch = bytecodePatch(
 
         var settingArray = arrayOf(
             "PREFERENCE_SCREEN: GENERAL",
-            "SETTINGS: HIDE_NAVIGATION_COMPONENTS"
+            "SETTINGS: HIDE_NAVIGATION_COMPONENTS",
+            "SETTINGS: REORDER_NAVIGATION_BAR"
         )
 
         // region patch for translucent navigation and status bars
@@ -488,11 +531,14 @@ val navigationBarComponentsPatch = bytecodePatch(
                         :ignore_search
 
                         move-object/16 v$messageLiteRegister, v$backupRegister
+                        invoke-static { v$messageLiteRegister }, $EXTENSION_CLASS_DESCRIPTOR->setPivotBarWatchLaterRenderer(Lcom/google/protobuf/MessageLite;)V
                         nop
                     """
                     )
                 }
             }
+
+            implementPivotBarItemBuilder(WatchLaterPivotBarItemBuilderFingerprint)
 
             PivotBarRendererListFingerprint.let {
                 it.method.apply {
@@ -503,7 +549,7 @@ val navigationBarComponentsPatch = bytecodePatch(
 
                     val protoListBuilderFingerprint = Fingerprint(
                         accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-                        returnType = insertMatch.instruction.getReference<FieldReference>()!!.type,
+                        returnType = insertMatch.fieldReference.type,
                         parameters = listOf("Ljava/util/Collection;")
                     )
                     val protoListBuilderMethod = protoListBuilderFingerprint.method
@@ -582,8 +628,6 @@ val navigationBarComponentsPatch = bytecodePatch(
             }
 
             settingArray += "SETTINGS: ANIMATED_NAVIGATION_BAR"
-            settingArray += "SETTINGS: SHOW_SEARCH_BUTTON"
-            settingArray += "SETTINGS: REORDER_NAVIGATION_BAR"
         }
 
         // endregion
@@ -797,14 +841,9 @@ val navigationBarComponentsPatch = bytecodePatch(
                     getInstruction<ReferenceInstruction>(cairoNotificationEnumIndex).reference
                 }
 
+            SetEnumMapFingerprint.clearMatch()
             SetEnumMapFingerprint.method.apply {
-                val enumMapIndex = indexOfFirstInstructionReversedOrThrow {
-                    val reference = getReference<MethodReference>()
-                    opcode == Opcode.INVOKE_VIRTUAL &&
-                            reference?.definingClass == "Ljava/util/EnumMap;" &&
-                            reference.name == "put" &&
-                            reference.parameterTypes.firstOrNull() == "Ljava/lang/Enum;"
-                }
+                val enumMapIndex = SetEnumMapFingerprint.instructionMatches.last().index
                 val (enumMapRegister, enumRegister) = getInstruction<FiveRegisterInstruction>(
                     enumMapIndex
                 ).let {
@@ -828,6 +867,24 @@ val navigationBarComponentsPatch = bytecodePatch(
                         invoke-static {v$register}, $EXTENSION_CLASS_DESCRIPTOR->getLibraryDrawableId(I)I
                         move-result v$register
                         """
+                )
+            }
+        }
+
+        if (is_20_05_or_greater) {
+            val watchLaterIcon = WatchLaterIconEnumFingerprint.instructionMatches.last().getFieldAccessed()
+            SetEnumMapFingerprint.clearMatch()
+            SetEnumMapFingerprint.method.apply {
+                val putIndex = SetEnumMapFingerprint.instructionMatches.last().index
+                val mapRegister = getInstruction<FiveRegisterInstruction>(putIndex).registerC
+                val insertIndex = putIndex + 1
+                val iconRegister = findFreeRegister(insertIndex, mapRegister)
+                addInstructions(
+                    insertIndex,
+                    """
+                        sget-object v$iconRegister, $watchLaterIcon
+                        invoke-static { v$mapRegister, v$iconRegister }, $EXTENSION_CLASS_DESCRIPTOR->setWatchLaterSelectedIcon(Ljava/util/EnumMap;Ljava/lang/Enum;)V
+                    """
                 )
             }
         }
