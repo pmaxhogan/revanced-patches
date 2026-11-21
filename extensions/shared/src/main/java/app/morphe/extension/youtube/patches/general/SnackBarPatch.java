@@ -39,20 +39,14 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
-/*
- * Portions of this file are ported from Morphe:
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-patches
- *
- * See the included NOTICE file for GPLv3 Section 7 terms that apply to this code.
- */
-
 package app.morphe.extension.youtube.patches.general;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.view.ContextThemeWrapper;
 import android.view.View;
+import android.view.Gravity;
+import app.morphe.extension.shared.utils.Logger;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 
@@ -63,6 +57,36 @@ import app.morphe.extension.youtube.utils.ThemeUtils;
 
 @SuppressWarnings("unused")
 public final class SnackBarPatch {
+    /**
+     * Injection point, called after the snackbar container lays out its children.
+     * <p>
+     * Preserve YouTube's bottom padding: it can include the space above the app navigation bar,
+     * not just the system window inset. Removing it can move snackbars behind the navigation bar.
+     * Only compensate for the extra height added by the glass navigation bar.
+     */
+    public static void removeExtraBottomRoom(FrameLayout container) {
+        try {
+            final int offset = -GlassNavigationBar.getAddedRoomOnScreen();
+            if (offset == 0) {
+                return;
+            }
+
+            if (offset > 0) {
+                // The moved snackbars are drawn over the padding.
+                container.setClipToPadding(false);
+            }
+            for (int i = 0, count = container.getChildCount(); i < count; i++) {
+                View child = container.getChildAt(i);
+                if (child.getLayoutParams() instanceof FrameLayout.LayoutParams params
+                        && (params.gravity & Gravity.VERTICAL_GRAVITY_MASK) == Gravity.BOTTOM) {
+                    child.offsetTopAndBottom(offset);
+                }
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "removeExtraBottomRoom failure", ex);
+        }
+    }
+
     private static final boolean HIDE_SNACK_BAR =
             Settings.HIDE_SNACK_BAR.get();
     private static final boolean HIDE_SERVER_SIDE_SNACK_BAR =

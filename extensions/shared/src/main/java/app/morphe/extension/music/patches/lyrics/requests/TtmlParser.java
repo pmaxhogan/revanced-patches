@@ -24,12 +24,14 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import app.morphe.extension.music.patches.lyrics.TextTrim;
 import app.morphe.extension.music.patches.lyrics.LyricsRomanizer;
 import app.morphe.extension.music.patches.lyrics.Lyrics;
 import app.morphe.extension.music.patches.lyrics.LyricsLine;
 import app.morphe.extension.music.patches.lyrics.LyricsMerge;
 import app.morphe.extension.music.patches.lyrics.Word;
+import app.morphe.extension.music.patches.lyrics.romanizers.KanaRomanizer;
+import app.morphe.extension.music.patches.lyrics.romanizers.ScriptDetector;
+import app.morphe.extension.music.patches.lyrics.TextTrim;
 import app.morphe.extension.shared.utils.Logger;
 
 /**
@@ -45,7 +47,13 @@ public final class TtmlParser {
     private static final Pattern TIME_UNIT = Pattern.compile("(-?\\d+(?:\\.\\d+)?)(ms|h|m|s)");
     private static final Pattern TIME_COLON = Pattern.compile(
             "^(?:(\\d+):)?(?:(\\d+):)?(\\d+(?:\\.\\d+)?)$");
+    private static final Pattern TIME_SMPTE = Pattern.compile(
+            "^(\\d+):(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)$");
+    /** The frame rate SMPTE timecode counts in when the document does not state one. */
+    private static final int DEFAULT_FRAME_RATE = 30;
     private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
+
+    private static final String INDEFINITE = "indefinite";
 
     private static final String NS_TTM = "http://www.w3.org/ns/ttml#metadata";
     private static final String NS_ITUNES = "http://music.apple.com/lyric-ttml-internal";
@@ -53,6 +61,7 @@ public final class TtmlParser {
     private static final String NS_XML = "http://www.w3.org/XML/1998/namespace";
     private static final String NS_TTS = "http://www.w3.org/ns/ttml#styling";
     private static final String NS_AMLL = "http://www.example.com/ns/amll";
+    private static final String NS_MORPHE = "http://morphe.app/lyrics";
     private static final String NS_COMPOSER = "https://composer.betterlyrics.org/ttml";
     private static final String NS_COMPOSER_LEGACY = "https://composer.boidu.dev/ttml";
 
@@ -78,9 +87,14 @@ public final class TtmlParser {
     private static HeadMetadata parseHeadMetadata(String ttml) {
         List<String> songwriters = new ArrayList<>();
         List<String> amllCredits = new ArrayList<>();
+        List<String> morpheCredits = new ArrayList<>();
         Map<String, AgentInfo> agentTypes = new HashMap<>();
         Map<String, List<RomajiSyllable>> sidecarRoman = new HashMap<>();
         Map<String, SidecarTranslation> sidecarTrans = new HashMap<>();
+        String desc = null;
+        String morpheSource = null;
+        String morpheSourceUrl = null;
+        int offsetMs = 0;
 
         try {
             final XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
@@ -91,6 +105,7 @@ public final class TtmlParser {
             boolean inHead = false;
             boolean inSongwriters = false;
             boolean inAgent = false;
+            boolean inItunesMetadata = false;
             int songwritersDepth = 0;
             String agentId = null;
             String agentType = null;
@@ -138,6 +153,40 @@ public final class TtmlParser {
                             collectSidecarTransliterations(p, sidecarRoman);
                         } else if ("translations".equals(local)) {
                             collectSidecarTranslations(p, sidecarTrans);
+                        } else if ("itunesmetadata".equalsIgnoreCase(local)) {
+                            inItunesMetadata = true;
+                        } else if (inItunesMetadata && "audio".equals(local)) {
+                            // <audio lyricOffset="0.940" role="base"/>: seconds every timing is late by.
+                            final String offset = getAttr(p, NS_ITUNES, "lyricOffset", null);
+                            if (offset != null) {
+                                try {
+                                    offsetMs = (int) Math.round(Double.parseDouble(offset) * 1000);
+                                } catch (NumberFormatException ex) {
+                                    Logger.printDebug(() -> "Invalid TTML lyricOffset: " + offset, ex);
+                                }
+                            }
+                        } else {
+                            // Morphe namespace metadata (non-standard)
+                            if (NS_MORPHE.equals(p.getNamespace())) {
+                                if ("source".equals(local)) {
+                                    morpheSource = readTextContent(p).trim();
+                                    if (morpheSource.isEmpty()) morpheSource = null;
+                                } else if ("sourceUrl".equals(local)) {
+                                    morpheSourceUrl = readTextContent(p).trim();
+                                    if (morpheSourceUrl.isEmpty()) morpheSourceUrl = null;
+                                } else if ("credits".equals(local)) {
+                                    String credit = readTextContent(p).trim();
+                                    if (!credit.isEmpty()) {
+                                        morpheCredits.add(credit);
+                                    }
+                                }
+                            }
+
+                            // Whether inside <metadata> or directly in <head>.
+                            if (desc == null && "desc".equals(local)) {
+                                desc = readTextContent(p).trim();
+                                if (desc.isEmpty()) desc = null;
+                            }
                         }
                     }
                 } else if (event == XmlPullParser.END_TAG) {
@@ -157,6 +206,8 @@ public final class TtmlParser {
                         agentId = null;
                         agentType = null;
                         agentName = null;
+                    } else if (inItunesMetadata && "itunesmetadata".equalsIgnoreCase(local)) {
+                        inItunesMetadata = false;
                     }
                 }
                 event = p.next();
@@ -165,7 +216,8 @@ public final class TtmlParser {
             Logger.printDebug(() -> "Could not parse TTML head metadata", ex);
         }
 
-        return new HeadMetadata(songwriters, amllCredits, agentTypes, sidecarRoman, sidecarTrans);
+        return new HeadMetadata(songwriters, amllCredits, morpheCredits, agentTypes, sidecarRoman,
+                sidecarTrans, desc, morpheSource, morpheSourceUrl, offsetMs);
     }
 
     @Nullable
@@ -176,18 +228,12 @@ public final class TtmlParser {
         try {
             final HeadMetadata hm = parseHeadMetadata(ttml);
 
-            final List<String> songwriters;
-            if (!hm.songwriters().isEmpty()) {
-                StringBuilder sb = new StringBuilder("Written by: ");
-                for (int i = 0; i < hm.songwriters().size(); i++) {
-                    if (i > 0) sb.append(", ");
-                    sb.append(hm.songwriters().get(i));
-                }
-                songwriters = List.of(sb.toString());
-            } else {
-                songwriters = null;
-            }
-            final List<String> amllCreditLines = hm.amllCredits();
+            // Title/Artist/Album/Copyright are standard metadata, not songwriters.
+            final List<String> songwriters = hm.songwriters().isEmpty()
+                    ? null : hm.songwriters();
+            // Credits: non-standard metadata with no standard TTML equivalent.
+            final List<String> credits = combineCreditLists(hm.amllCredits(), hm.morpheCredits());
+            final String about = hm.desc();
             final Map<String, AgentInfo> agentTypes = hm.agentTypes();
             final Map<String, List<RomajiSyllable>> sidecarRoman = hm.sidecarRoman();
             final Map<String, SidecarTranslation> sidecarTrans = hm.sidecarTrans();
@@ -204,6 +250,7 @@ public final class TtmlParser {
             int mainLineCount;
 
             boolean noTiming = false;
+            int frameRate = DEFAULT_FRAME_RATE;
             boolean inHead = false;
             boolean inBody = false;
             String divSongPart = null;
@@ -214,8 +261,9 @@ public final class TtmlParser {
                     final String local = localName(p.getName());
 
                     if ("tt".equals(local)) {
-                        noTiming = "none".equals(
+                        noTiming = "none".equalsIgnoreCase(
                                 getLyricAttr(p, "timing", "itunes:timing"));
+                        frameRate = parseFrameRate(getAttr(p, null, "frameRate", "frameRate"));
                     } else if ("head".equals(local)) {
                         inHead = true;
                     } else if ("body".equals(local)) {
@@ -228,10 +276,13 @@ public final class TtmlParser {
                     } else if ("p".equals(local) && inBody && !inHead) {
                         final String lineId = getLyricAttr(p, "key", "itunes:key");
                         final String agentId = getAttr(p, NS_TTM, "agent", "ttm:agent");
-                        final long pBegin = noTiming ? 0 : parseTime(getAttr(p, null, "begin", "begin"));
-                        final long pEnd = noTiming ? 0 : parseTime(getAttr(p, null, "end", "end"));
+                        final String pBeginRaw = noTiming ? null : getAttr(p, null, "begin", "begin");
+                        final String pEndRaw = noTiming ? null : getAttr(p, null, "end", "end");
+                        final String pDurRaw = noTiming ? null : getAttr(p, null, "dur", "dur");
+                        final long pBegin = noTiming ? 0 : parseTime(pBeginRaw, frameRate);
+                        final long pEnd = noTiming ? 0 : resolveEndTime(pBegin, pEndRaw, pDurRaw, frameRate);
 
-                        final ParsedLine pl = processPElement(p, pBegin, pEnd);
+                        final ParsedLine pl = processPElement(p, pBegin, pEnd, frameRate);
 
                         if (pl != null && (!pl.text().trim().isEmpty() || !pl.bgLines().isEmpty())) {
                             final List<RomajiSyllable> lineSidecar =
@@ -378,8 +429,12 @@ public final class TtmlParser {
                     LyricsMerge.hasText(romanization) ? romanization : null,
                     transOut, romaOut,
                     songwriters,
-                    amllCreditLines.isEmpty() ? null : amllCreditLines,
-                    agentNames);
+                    credits,
+                    agentNames,
+                    about,
+                    hm.morpheSource(),
+                    hm.morpheSourceUrl(),
+                    hm.offsetMs());
         } catch (XmlPullParserException | IOException ex) {
             Logger.printDebug(() -> "Could not parse TTML to lyrics", ex);
             return null;
@@ -514,11 +569,13 @@ public final class TtmlParser {
                 if ("span".equals(local)) {
                     final String begin = getAttr(p, null, "begin", "begin");
                     final String end = getAttr(p, null, "end", "end");
-                    if (begin != null && end != null) {
+                    final String dur = getAttr(p, null, "dur", "dur");
+                    if (hasTiming(begin, end, dur)) {
                         final String text = normalizeText(readTextContent(p));
                         if (!text.isEmpty()) {
-                            syllables.add(new RomajiSyllable(
-                                    parseTime(begin), parseTime(end), text));
+                            final long beginMs = parseTime(begin);
+                            final long endMs = resolveEndTime(beginMs, end, dur, DEFAULT_FRAME_RATE);
+                            syllables.add(new RomajiSyllable(beginMs, endMs, text));
                         }
                     } else {
                         skipElement(p);
@@ -632,20 +689,32 @@ public final class TtmlParser {
 
                 if ("x-bg".equals(role)) {
                     inBg = true;
+                } else if ("br".equals(local)) {
+                    // A line break inside the translation: treat as a word separator.
+                    if (inBgWord) {
+                        bgWordBuf.append(' ');
+                    } else if (inMainWord) {
+                        mainWordBuf.append(' ');
+                    } else if (inBg) {
+                        endWordWithBreak(bgWords, bgFullText);
+                    } else {
+                        endWordWithBreak(mainWords, mainFullText);
+                    }
                 } else if ("span".equals(local)) {
                     final String beginAttr = getAttr(p, null, "begin", "begin");
                     final String endAttr = getAttr(p, null, "end", "end");
-                    if (beginAttr != null && endAttr != null) {
+                    final String durAttr = getAttr(p, null, "dur", "dur");
+                    if (hasTiming(beginAttr, endAttr, durAttr)) {
                         if (inBg) {
                             inBgWord = true;
                             bgWordBuf.setLength(0);
                             bgWordBegin = parseTime(beginAttr);
-                            bgWordEnd = parseTime(endAttr);
+                            bgWordEnd = resolveEndTime(bgWordBegin, endAttr, durAttr, DEFAULT_FRAME_RATE);
                         } else {
                             inMainWord = true;
                             mainWordBuf.setLength(0);
                             mainWordBegin = parseTime(beginAttr);
-                            mainWordEnd = parseTime(endAttr);
+                            mainWordEnd = resolveEndTime(mainWordBegin, endAttr, durAttr, DEFAULT_FRAME_RATE);
                         }
                     } else if (inBg) {
                         bgWrapperDepth++;
@@ -671,7 +740,7 @@ public final class TtmlParser {
                             final Word prev = bgWords.get(bgWords.size() - 1);
                             bgWords.set(bgWords.size() - 1,
                                     new Word(prev.startMs(), prev.endMs(), prev.text(),
-                                            prev.romaji(), true));
+                                            prev.romaji(), true, prev.ruby()));
                         }
                         if (!text.isEmpty()) {
                             bgWords.add(new Word(bgWordBegin, bgWordEnd, text, null,
@@ -690,7 +759,7 @@ public final class TtmlParser {
                             final Word prev = mainWords.get(mainWords.size() - 1);
                             mainWords.set(mainWords.size() - 1,
                                     new Word(prev.startMs(), prev.endMs(), prev.text(),
-                                            prev.romaji(), true));
+                                            prev.romaji(), true, prev.ruby()));
                         }
                         if (!text.isEmpty()) {
                             mainWords.add(new Word(mainWordBegin, mainWordEnd, text, null,
@@ -717,7 +786,7 @@ public final class TtmlParser {
                         if (!prev.endsWithSpace()) {
                             bgWords.set(bgWords.size() - 1, new Word(
                                     prev.startMs(), prev.endMs(),
-                                    prev.text(), prev.romaji(), true));
+                                    prev.text(), prev.romaji(), true, prev.ruby()));
                         }
                     }
                 } else if (!inBg) {
@@ -728,7 +797,7 @@ public final class TtmlParser {
                         if (!prev.endsWithSpace()) {
                             mainWords.set(mainWords.size() - 1, new Word(
                                     prev.startMs(), prev.endMs(),
-                                    prev.text(), prev.romaji(), true));
+                                    prev.text(), prev.romaji(), true, prev.ruby()));
                         }
                     }
                 }
@@ -742,13 +811,13 @@ public final class TtmlParser {
             final Word first = mainWords.get(0);
             if (first.text().startsWith(" ")) {
                 mainWords.set(0, new Word(first.startMs(), first.endMs(),
-                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace()));
+                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace(), first.ruby()));
             }
             final int lastIdx = mainWords.size() - 1;
             final Word last = mainWords.get(lastIdx);
             if (last.text().endsWith(" ") || last.endsWithSpace()) {
                 mainWords.set(lastIdx, new Word(last.startMs(), last.endMs(),
-                        last.text().trim(), last.romaji(), false));
+                        last.text().trim(), last.romaji(), false, last.ruby()));
             }
         }
 
@@ -756,13 +825,13 @@ public final class TtmlParser {
             final Word first = bgWords.get(0);
             if (first.text().startsWith(" ")) {
                 bgWords.set(0, new Word(first.startMs(), first.endMs(),
-                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace()));
+                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace(), first.ruby()));
             }
             final int lastIdx = bgWords.size() - 1;
             final Word last = bgWords.get(lastIdx);
             if (last.text().endsWith(" ") || last.endsWithSpace()) {
                 bgWords.set(lastIdx, new Word(last.startMs(), last.endMs(),
-                        last.text().trim(), last.romaji(), false));
+                        last.text().trim(), last.romaji(), false, last.ruby()));
             }
         }
 
@@ -777,7 +846,21 @@ public final class TtmlParser {
                 bg.isEmpty() ? null : bg, finalBgWords);
     }
 
-    private static ParsedLine processPElement(XmlPullParser p, long pBegin, long pEnd)
+    /** A line break between words: the word before it now ends in a space, as does the text. */
+    private static void endWordWithBreak(List<Word> words, StringBuilder text) {
+        if (!words.isEmpty()) {
+            final Word last = words.get(words.size() - 1);
+            if (!last.endsWithSpace()) {
+                words.set(words.size() - 1, new Word(last.startMs(), last.endMs(), last.text(),
+                        last.romaji(), true, last.ruby()));
+            }
+        }
+        if (text.length() > 0 && text.charAt(text.length() - 1) != ' ') {
+            text.append(' ');
+        }
+    }
+
+    private static ParsedLine processPElement(XmlPullParser p, long pBegin, long pEnd, int frameRate)
             throws XmlPullParserException, IOException {
 
         final List<Word> words = new ArrayList<>();
@@ -816,12 +899,17 @@ public final class TtmlParser {
         int wrapperDepth = 0;
 
         boolean inRubyContainer = false;
+        int rubyContainerInnerDepth = 0;
         boolean inRubyBase = false;
+        int rubyBaseInnerDepth = 0;
         final StringBuilder rubyBaseBuf = new StringBuilder();
         boolean inRubyTextContainer = false;
+        int rubyTextContainerInnerDepth = 0;
         boolean inRubyText = false;
+        int rubyTextInnerDepth = 0;
         final StringBuilder rubyTextBuf = new StringBuilder();
         long rubyTextBegin = 0, rubyTextEnd = 0;
+        long rubyContainerBegin = 0, rubyContainerEnd = 0;
         final List<RomajiSyllable> rubyTags = new ArrayList<>();
 
         int depth = 1;
@@ -834,31 +922,108 @@ public final class TtmlParser {
             if (event == XmlPullParser.START_TAG) {
                 depth++;
                 final String local = localName(p.getName());
-                if (!"span".equals(local)) {
+                final String htmlRuby = htmlRubyRole(local);
+
+                if ("br".equals(local)) {
+                    // A line break inside a paragraph: treat as a word separator.
+                    if (inBgTranslation) {
+                        bgTransBuf.append(' ');
+                    } else if (inBgRoman) {
+                        bgRomanBuf.append(' ');
+                    } else if (inBgWord) {
+                        bgWordBuf.append(' ');
+                    } else if (inRubyContainer) {
+                        if (inRubyBase) {
+                            rubyBaseBuf.append(' ');
+                        } else if (inRubyText) {
+                            rubyTextBuf.append(' ');
+                        }
+                    } else if (inBg && bgWrapperDepth == 0) {
+                        endWordWithBreak(bgWords, bgFullText);
+                    } else if (inTranslation) {
+                        transBuf.append(' ');
+                    } else if (inRoman) {
+                        romanBuf.append(' ');
+                    } else if (inWord) {
+                        wordBuf.append(' ');
+                    } else if (!inBg) {
+                        endWordWithBreak(words, fullText);
+                    }
+                    continue;
+                }
+
+                if (!"span".equals(local) && htmlRuby == null) {
                     continue;
                 }
 
                 final String role = getAttr(p, NS_TTM, "role", "ttm:role");
-                final String ruby = getAttr(p, NS_TTS, "ruby", "tts:ruby");
+                final String rubyAttr = getAttr(p, NS_TTS, "ruby", "tts:ruby");
+                final String ruby = rubyAttr != null ? rubyAttr : htmlRuby;
                 final String beginAttr = getAttr(p, null, "begin", "begin");
                 final String endAttr = getAttr(p, null, "end", "end");
+                final String durAttr = getAttr(p, null, "dur", "dur");
 
                 // Ruby is settled first: an annotation sits inside the vocal it reads,
                 // so the background branch below would drop its base text.
                 if ("container".equals(ruby)) {
                     inRubyContainer = true;
+                    rubyContainerInnerDepth = 0;
+                    rubyBaseInnerDepth = 0;
+                    rubyTextContainerInnerDepth = 0;
+                    rubyTextInnerDepth = 0;
                     rubyBaseBuf.setLength(0);
                     rubyTags.clear();
+                    rubyContainerBegin = parseTime(beginAttr, frameRate);
+                    rubyContainerEnd = resolveEndTime(rubyContainerBegin, endAttr, durAttr, frameRate);
+                    if (rubyContainerBegin == 0 && rubyContainerEnd == 0) {
+                        if (inBg && inBgWord) {
+                            rubyContainerBegin = bgWordBegin;
+                            rubyContainerEnd = bgWordEnd;
+                            inBgWord = false;
+                        } else if (!inBg && inWord) {
+                            rubyContainerBegin = wordBegin;
+                            rubyContainerEnd = wordEnd;
+                            inWord = false;
+                        }
+                    }
                 } else if ("base".equals(ruby) && inRubyContainer) {
                     inRubyBase = true;
+                    rubyBaseInnerDepth = 0;
                     rubyBaseBuf.setLength(0);
+                    final long b = parseTime(beginAttr, frameRate);
+                    final long e = resolveEndTime(b, endAttr, durAttr, frameRate);
+                    if (b > 0) rubyContainerBegin = b;
+                    if (e > 0) rubyContainerEnd = e;
                 } else if ("textContainer".equals(ruby) && inRubyContainer) {
                     inRubyTextContainer = true;
-                } else if ("text".equals(ruby) && inRubyTextContainer) {
+                    rubyTextContainerInnerDepth = 0;
+                } else if ("text".equals(ruby) && (inRubyTextContainer || inRubyContainer)) {
                     inRubyText = true;
+                    rubyTextInnerDepth = 0;
                     rubyTextBuf.setLength(0);
-                    rubyTextBegin = parseTime(beginAttr);
-                    rubyTextEnd = parseTime(endAttr);
+                    rubyTextBegin = parseTime(beginAttr, frameRate);
+                    rubyTextEnd = resolveEndTime(rubyTextBegin, endAttr, durAttr, frameRate);
+                } else if (inRubyContainer) {
+                    // A span nested in the ruby, such as one timing each mora of the base.
+                    final long b = parseTime(beginAttr, frameRate);
+                    final long e = resolveEndTime(b, endAttr, durAttr, frameRate);
+                    if (inRubyText) {
+                        rubyTextInnerDepth++;
+                        if (b > 0 && (rubyTextBegin == 0 || b < rubyTextBegin)) rubyTextBegin = b;
+                        if (e > rubyTextEnd) rubyTextEnd = e;
+                    } else if (inRubyBase) {
+                        rubyBaseInnerDepth++;
+                        if (b > 0 && (rubyContainerBegin == 0 || b < rubyContainerBegin))
+                            rubyContainerBegin = b;
+                        if (e > rubyContainerEnd) rubyContainerEnd = e;
+                    } else if (inRubyTextContainer) {
+                        rubyTextContainerInnerDepth++;
+                    } else {
+                        rubyContainerInnerDepth++;
+                        if (b > 0 && (rubyContainerBegin == 0 || b < rubyContainerBegin))
+                            rubyContainerBegin = b;
+                        if (e > rubyContainerEnd) rubyContainerEnd = e;
+                    }
                 } else if (inBg) {
                     if ("x-translation".equals(role)) {
                         inBgTranslation = true;
@@ -866,11 +1031,11 @@ public final class TtmlParser {
                     } else if ("x-roman".equals(role)) {
                         inBgRoman = true;
                         bgRomanBuf.setLength(0);
-                    } else if (beginAttr != null && endAttr != null) {
+                    } else if (hasTiming(beginAttr, endAttr, durAttr)) {
                         inBgWord = true;
                         bgWordBuf.setLength(0);
-                        bgWordBegin = parseTime(beginAttr);
-                        bgWordEnd = parseTime(endAttr);
+                        bgWordBegin = parseTime(beginAttr, frameRate);
+                        bgWordEnd = resolveEndTime(bgWordBegin, endAttr, durAttr, frameRate);
                     } else {
                         bgWrapperDepth++;
                     }
@@ -880,8 +1045,8 @@ public final class TtmlParser {
                     bgFullText.setLength(0);
                     bgWrapperDepth = 0;
                     bgAgentId = getAttr(p, NS_TTM, "agent", "ttm:agent");
-                    bgBeginMs = parseTime(beginAttr);
-                    bgEndMs = parseTime(endAttr);
+                    bgBeginMs = parseTime(beginAttr, frameRate);
+                    bgEndMs = resolveEndTime(bgBeginMs, endAttr, durAttr, frameRate);
                 } else if ("x-translation".equals(role)) {
                     inTranslation = true;
                     transBuf.setLength(0);
@@ -890,18 +1055,18 @@ public final class TtmlParser {
                     inRoman = true;
                     romanBuf.setLength(0);
                     romanLang = getAttr(p, NS_XML, "lang", "xml:lang");
-                } else if (beginAttr != null && endAttr != null) {
+                } else if (hasTiming(beginAttr, endAttr, durAttr)) {
                     inWord = true;
                     wordBuf.setLength(0);
-                    wordBegin = parseTime(beginAttr);
-                    wordEnd = parseTime(endAttr);
+                    wordBegin = parseTime(beginAttr, frameRate);
+                    wordEnd = resolveEndTime(wordBegin, endAttr, durAttr, frameRate);
                 } else {
                     wrapperDepth++;
                 }
             } else if (event == XmlPullParser.END_TAG) {
                 final String local = localName(p.getName());
 
-                if ("span".equals(local)) {
+                if ("span".equals(local) || htmlRubyRole(local) != null) {
                     if (inBgTranslation) {
                         inBgTranslation = false;
                         final String btText = bgTransBuf.toString().trim();
@@ -929,53 +1094,78 @@ public final class TtmlParser {
                             final Word prev = bgWords.get(bgWords.size() - 1);
                             bgWords.set(bgWords.size() - 1,
                                     new Word(prev.startMs(), prev.endMs(), prev.text(),
-                                            prev.romaji(), true));
+                                            prev.romaji(), true, prev.ruby()));
                         }
                         if (!text.isEmpty()) {
                             bgWords.add(new Word(bgWordBegin, bgWordEnd, text, null,
                                     endsWithSpace));
                         }
-                    } else if (inBg && bgWrapperDepth > 0) {
-                        bgWrapperDepth--;
-                    } else if (inBg) {
-                        flushBgLine(bgLines, bgWords, bgFullText, bgBeginMs, bgEndMs, pBegin, pEnd);
-                        inBg = false;
                     } else if (inRubyText && inRubyContainer) {
-                        inRubyText = false;
-                        final String text = normalizeText(rubyTextBuf.toString());
-                        if (!text.isEmpty()) {
-                            rubyTags.add(new RomajiSyllable(
-                                    rubyTextBegin, rubyTextEnd, text));
+                        if (rubyTextInnerDepth > 0) {
+                            rubyTextInnerDepth--;
+                        } else {
+                            inRubyText = false;
+                            final String text = normalizeText(rubyTextBuf.toString());
+                            if (!text.isEmpty()) {
+                                rubyTags.add(new RomajiSyllable(
+                                        rubyTextBegin, rubyTextEnd, text));
+                            }
+                        }
+                    } else if (inRubyBase && inRubyContainer) {
+                        if (rubyBaseInnerDepth > 0) {
+                            rubyBaseInnerDepth--;
+                        } else {
+                            inRubyBase = false;
                         }
                     } else if (inRubyTextContainer && inRubyContainer) {
-                        inRubyTextContainer = false;
-                    } else if (inRubyBase && inRubyContainer) {
-                        inRubyBase = false;
+                        if (rubyTextContainerInnerDepth > 0) {
+                            rubyTextContainerInnerDepth--;
+                        } else {
+                            inRubyTextContainer = false;
+                        }
                     } else if (inRubyContainer) {
-                        inRubyContainer = false;
-                        final String baseText = normalizeText(rubyBaseBuf.toString());
-                        if (!baseText.isEmpty()) {
-                            long rBegin = 0, rEnd = 0;
-                            if (!rubyTags.isEmpty()) {
-                                rBegin = rubyTags.get(0).startMs();
-                                rEnd = rubyTags.get(rubyTags.size() - 1).endMs();
-                            }
-                            StringBuilder rRoma = new StringBuilder();
-                            for (RomajiSyllable rs : rubyTags) {
+                        if (rubyContainerInnerDepth > 0) {
+                            rubyContainerInnerDepth--;
+                        } else {
+                            inRubyContainer = false;
+                            final String baseText = normalizeText(rubyBaseBuf.toString());
+                            if (!baseText.isEmpty()) {
+                                long rBegin = 0, rEnd = 0;
+                                if (!rubyTags.isEmpty()) {
+                                    rBegin = rubyTags.get(0).startMs();
+                                    rEnd = rubyTags.get(rubyTags.size() - 1).endMs();
+                                }
+                                if (rBegin == 0 && rEnd == 0) {
+                                    rBegin = rubyContainerBegin;
+                                    rEnd = rubyContainerEnd;
+                                }
+                                StringBuilder rubyBuilder = new StringBuilder();
+                                for (RomajiSyllable rs : rubyTags) {
+                                    //noinspection SizeReplaceableByIsEmpty
+                                    if (rubyBuilder.length() > 0) rubyBuilder.append(' ');
+                                    rubyBuilder.append(rs.text());
+                                }
                                 //noinspection SizeReplaceableByIsEmpty
-                                if (rRoma.length() > 0) rRoma.append(' ');
-                                rRoma.append(rs.text());
-                            }
-                            //noinspection SizeReplaceableByIsEmpty
-                            final String romaji = rRoma.length() > 0 ? rRoma.toString() : null;
+                                final String rubyText = rubyBuilder.length() > 0 ? rubyBuilder.toString() : null;
+                                // The ruby is drawn as furigana. The romaji reads the kana, which is
+                                // the ruby unless that is a gloss, such as "Normal" over ノルマ.
+                                final String romaji;
+                                if (ScriptDetector.containsKana(rubyText)) {
+                                    romaji = KanaRomanizer.romanizeSyllables(rubyText);
+                                } else if (ScriptDetector.containsKana(baseText)) {
+                                    romaji = KanaRomanizer.romanizeSyllables(baseText);
+                                } else {
+                                    romaji = null;
+                                }
 
-                            // The base is the sung text either way, only the line differs.
-                            if (inBg) {
-                                bgFullText.append(baseText);
-                                bgWords.add(new Word(rBegin, rEnd, baseText, romaji, false));
-                            } else {
-                                fullText.append(baseText);
-                                words.add(new Word(rBegin, rEnd, baseText, romaji, false));
+                                // The base is the sung text either way, only the line differs.
+                                if (inBg) {
+                                    bgFullText.append(baseText);
+                                    bgWords.add(new Word(rBegin, rEnd, baseText, romaji, false, rubyText));
+                                } else {
+                                    fullText.append(baseText);
+                                    words.add(new Word(rBegin, rEnd, baseText, romaji, false, rubyText));
+                                }
                             }
                         }
                     } else if (inBg && bgWrapperDepth > 0) {
@@ -1013,7 +1203,7 @@ public final class TtmlParser {
                             final Word prev = words.get(words.size() - 1);
                             words.set(words.size() - 1,
                                     new Word(prev.startMs(), prev.endMs(), prev.text(),
-                                            prev.romaji(), true));
+                                            prev.romaji(), true, prev.ruby()));
                         }
                         if (!text.isEmpty()) {
                             words.add(new Word(wordBegin, wordEnd, text, null,
@@ -1040,6 +1230,8 @@ public final class TtmlParser {
                     rubyBaseBuf.append(raw);
                 } else if (inRubyText && inRubyContainer) {
                     rubyTextBuf.append(raw);
+                } else if (inRubyContainer) {
+                    // Text between the base and the ruby text is only layout whitespace.
                 } else if (inBg && bgWrapperDepth == 0) {
                     if (isWhitespace) {
                         if (!bgWords.isEmpty()) {
@@ -1052,7 +1244,7 @@ public final class TtmlParser {
                                 if (!prev.endsWithSpace()) {
                                     bgWords.set(bgWords.size() - 1, new Word(
                                             prev.startMs(), prev.endMs(),
-                                            prev.text(), prev.romaji(), true));
+                                            prev.text(), prev.romaji(), true, prev.ruby()));
                                 }
                             }
                         }
@@ -1077,7 +1269,7 @@ public final class TtmlParser {
                                 if (!prev.endsWithSpace()) {
                                     words.set(words.size() - 1, new Word(
                                             prev.startMs(), prev.endMs(),
-                                            prev.text(), prev.romaji(), true));
+                                            prev.text(), prev.romaji(), true, prev.ruby()));
                                 }
                             }
                         }
@@ -1090,19 +1282,6 @@ public final class TtmlParser {
 
         final String rawLineText = normalizeText(fullText.toString());
         String lineText = rawLineText;
-        if (lineText.indexOf(' ') < 0 && words.size() > 1 && !isContinuousCjk(words.get(0).text())) {
-            StringBuilder reconstructed = new StringBuilder();
-            for (int i = 0; i < words.size(); i++) {
-                final Word w = words.get(i);
-                if (i > 0) reconstructed.append(' ');
-                reconstructed.append(w.text());
-                final boolean shouldEndWithSpace = (i < words.size() - 1);
-                if (w.endsWithSpace() != shouldEndWithSpace) {
-                    words.set(i, new Word(w.startMs(), w.endMs(), w.text(), w.romaji(), shouldEndWithSpace));
-                }
-            }
-            lineText = reconstructed.toString();
-        }
 
         // A background vocal that is still open ends with its line.
         if (inBg) {
@@ -1146,13 +1325,13 @@ public final class TtmlParser {
             final Word first = words.get(0);
             if (first.text().startsWith(" ")) {
                 words.set(0, new Word(first.startMs(), first.endMs(),
-                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace()));
+                        first.text().substring(1).trim(), first.romaji(), first.endsWithSpace(), first.ruby()));
             }
             final int lastIdx = words.size() - 1;
             final Word last = words.get(lastIdx);
             if (last.text().endsWith(" ") || last.endsWithSpace()) {
                 words.set(lastIdx, new Word(last.startMs(), last.endMs(),
-                        last.text().trim(), last.romaji(), false));
+                        last.text().trim(), last.romaji(), false, last.ruby()));
             }
         }
 
@@ -1189,19 +1368,6 @@ public final class TtmlParser {
         if (!bgText.trim().isEmpty()) {
             String cleanBgText = bgText.replaceAll("^[(（]+", "").replaceAll("[)）]+$", "").trim();
             stripBgWordParens(bgWords);
-            if (cleanBgText.indexOf(' ') < 0 && bgWords.size() > 1 && !isContinuousCjk(bgWords.get(0).text())) {
-                StringBuilder reconstructed = new StringBuilder();
-                for (int i = 0; i < bgWords.size(); i++) {
-                    final Word w = bgWords.get(i);
-                    if (i > 0) reconstructed.append(' ');
-                    reconstructed.append(w.text());
-                    final boolean shouldEndWithSpace = (i < bgWords.size() - 1);
-                    if (w.endsWithSpace() != shouldEndWithSpace) {
-                        bgWords.set(i, new Word(w.startMs(), w.endMs(), w.text(), w.romaji(), shouldEndWithSpace));
-                    }
-                }
-                cleanBgText = reconstructed.toString();
-            }
             if (!cleanBgText.isEmpty()) {
                 final long bgStart = bgBeginMs > 0 ? bgBeginMs : (bgWords.isEmpty() ? pBegin : bgWords.get(0).startMs());
                 final long bgEnd = bgEndMs > 0 ? bgEndMs : (bgWords.isEmpty() ? pEnd : bgWords.get(bgWords.size() - 1).endMs());
@@ -1219,7 +1385,7 @@ public final class TtmlParser {
                 first.text().replaceAll("^[(（]+", ""));
         if (!strippedFirst.equals(first.text())) {
             bgWords.set(0, new Word(first.startMs(), first.endMs(),
-                    strippedFirst, first.romaji(), first.endsWithSpace()));
+                    strippedFirst, first.romaji(), first.endsWithSpace(), first.ruby()));
         }
         final int lastIdx = bgWords.size() - 1;
         final Word last = bgWords.get(lastIdx);
@@ -1227,7 +1393,7 @@ public final class TtmlParser {
                 last.text().replaceAll("[)）]+$", ""));
         if (!strippedLast.equals(last.text())) {
             bgWords.set(lastIdx, new Word(last.startMs(), last.endMs(),
-                    strippedLast, last.romaji(), false));
+                    strippedLast, last.romaji(), false, last.ruby()));
         }
     }
 
@@ -1254,27 +1420,41 @@ public final class TtmlParser {
 
         for (int i = 0; i < words.size(); i++) {
             final Word main = words.get(i);
+            final long nextWordStart = (i + 1 < words.size()) ? words.get(i + 1).startMs() : Long.MAX_VALUE;
+            final long mainEndBound = Math.min(main.endMs(), nextWordStart);
+
+            // Collect all consecutive sidecar syllables whose span falls inside this word's window
+            // (e.g. "no", "ru", "ma" inside "ノルマ" [750ms..1550ms]).
+            StringBuilder multiRoma = new StringBuilder();
+            int multiLastIdx = -1;
             double maxIou = 0;
             int bestIdx = -1;
-            boolean fastMatched = false;
 
             int j = romanSearchStart;
             while (j < sidecar.size()) {
                 final RomajiSyllable sub = sidecar.get(j);
-
-                // Fast track: start times match within 2ms
-                if (Math.abs(main.startMs() - sub.startMs()) <= FAST_TRACK_MS) {
-                    words.set(i, new Word(main.startMs(), main.endMs(), main.text(),
-                            sub.text(), main.endsWithSpace()));
-                    romanSearchStart = j + 1;
-                    fastMatched = true;
+                if (sub.startMs() >= mainEndBound + FAST_TRACK_MS && sub.startMs() > main.startMs() + FAST_TRACK_MS) {
                     break;
                 }
 
-                // IoU computation
                 final long overlapStart = Math.max(main.startMs(), sub.startMs());
                 final long overlapEnd = Math.min(main.endMs(), sub.endMs());
                 final long intersection = Math.max(0, overlapEnd - overlapStart);
+                final long subDur = Math.max(1, sub.endMs() - sub.startMs());
+
+                final boolean startsTogether = Math.abs(main.startMs() - sub.startMs()) <= FAST_TRACK_MS;
+                final boolean mostlyInsideMain = intersection * 2 >= subDur
+                        && sub.startMs() >= main.startMs() - FAST_TRACK_MS
+                        && sub.endMs() <= main.endMs() + FAST_TRACK_MS * 2;
+
+                if (startsTogether || mostlyInsideMain) {
+                    String piece = sub.text() != null ? sub.text().trim() : "";
+                    if (!piece.isEmpty()) {
+                        if (multiRoma.length() > 0) multiRoma.append(' ');
+                        multiRoma.append(piece);
+                        multiLastIdx = j;
+                    }
+                }
 
                 if (intersection > 0) {
                     final long unionStart = Math.min(main.startMs(), sub.startMs());
@@ -1285,17 +1465,17 @@ public final class TtmlParser {
                         bestIdx = j;
                     }
                 }
-
-                if (sub.startMs() >= main.endMs()) {
-                    break;
-                }
                 j++;
             }
 
-            if (!fastMatched && bestIdx >= 0 && maxIou >= MIN_IOU) {
+            if (multiLastIdx >= 0 && multiRoma.length() > 0) {
+                words.set(i, new Word(main.startMs(), main.endMs(), main.text(),
+                        multiRoma.toString(), main.endsWithSpace(), main.ruby()));
+                romanSearchStart = multiLastIdx + 1;
+            } else if (bestIdx >= 0 && maxIou >= MIN_IOU) {
                 final RomajiSyllable sub = sidecar.get(bestIdx);
                 words.set(i, new Word(main.startMs(), main.endMs(), main.text(),
-                        sub.text(), main.endsWithSpace()));
+                        sub.text(), main.endsWithSpace(), main.ruby()));
                 romanSearchStart = bestIdx + 1;
             }
         }
@@ -1518,8 +1698,32 @@ public final class TtmlParser {
     }
 
     public static long parseTime(@Nullable String raw) {
+        return parseTime(raw, DEFAULT_FRAME_RATE);
+    }
+
+    /**
+     * Parse a TTML time expression to milliseconds.
+     *
+     * @param raw       The raw time string (begin/end/dur attribute value).
+     * @param frameRate Frames per second of the document, for SMPTE timecode.
+     * @return Milliseconds, or 0 if the value cannot be parsed or is "indefinite".
+     */
+    private static long parseTime(@Nullable String raw, int frameRate) {
         if (raw == null || raw.isEmpty()) return 0;
         final String trimmed = raw.trim();
+
+        // "indefinite" means the timing is not known yet.
+        if (INDEFINITE.equalsIgnoreCase(trimmed)) {
+            return 0;
+        }
+
+        final Matcher sm = TIME_SMPTE.matcher(trimmed);
+        if (sm.matches()) {
+            final long seconds = Long.parseLong(sm.group(1)) * 3600
+                    + Long.parseLong(sm.group(2)) * 60
+                    + Long.parseLong(sm.group(3));
+            return seconds * 1000 + (long) (Double.parseDouble(sm.group(4)) * 1000 / frameRate);
+        }
 
         // Try colon-separated format first: HH:MM:SS.mmm or MM:SS.mmm
         final Matcher cm = TIME_COLON.matcher(trimmed);
@@ -1561,12 +1765,67 @@ public final class TtmlParser {
         }
     }
 
+    private static int parseFrameRate(@Nullable String raw) {
+        if (raw == null) {
+            return DEFAULT_FRAME_RATE;
+        }
+        try {
+            final int frameRate = Integer.parseInt(raw.trim());
+            return frameRate > 0 ? frameRate : DEFAULT_FRAME_RATE;
+        } catch (NumberFormatException ex) {
+            Logger.printDebug(() -> "Could not parse TTML frame rate: " + raw, ex);
+            return DEFAULT_FRAME_RATE;
+        }
+    }
+
+    /**
+     * Whether a span has usable timing information: a non-null begin that is not
+     * "indefinite", plus either an end or a dur attribute.
+     */
+    private static boolean hasTiming(@Nullable String beginRaw,
+                                     @Nullable String endRaw,
+                                     @Nullable String durRaw) {
+        if (beginRaw == null || INDEFINITE.equalsIgnoreCase(beginRaw.trim())) {
+            return false;
+        }
+        return endRaw != null || durRaw != null;
+    }
+
+    /**
+     * Resolve the end time of a span: use the {@code end} attribute if present,
+     * otherwise compute {@code begin + dur}. Returns 0 if neither is available.
+     */
+    private static long resolveEndTime(long beginMs,
+                                       @Nullable String endRaw,
+                                       @Nullable String durRaw,
+                                       int frameRate) {
+        if (endRaw != null) {
+            return parseTime(endRaw, frameRate);
+        }
+        if (durRaw != null) {
+            return beginMs + parseTime(durRaw, frameRate);
+        }
+        return 0;
+    }
+
     private static String normalizeTextRaw(String s) {
         return MULTI_SPACE.matcher(s).replaceAll(" ");
     }
 
     private static String normalizeText(String s) {
         return normalizeTextRaw(s).trim();
+    }
+
+    /** The tts:ruby role an HTML style ruby element stands for, or null for any other element. */
+    @Nullable
+    private static String htmlRubyRole(String local) {
+        return switch (local) {
+            case "ruby" -> "container";
+            case "rb" -> "base";
+            case "rtc" -> "textContainer";
+            case "rt" -> "text";
+            default -> null;
+        };
     }
 
     private static String localName(String name) {
@@ -1636,37 +1895,93 @@ public final class TtmlParser {
         TtmlResult result = parse(ttml);
         if (result == null || result.lines().isEmpty()) return null;
 
-        List<String> combinedSongwriters = combineCredits(result.songwriters(), result.amllCreditLines());
-        boolean synced = result.lines().stream()
+        final int offsetMs = result.offsetMs();
+        final List<LyricsLine> shiftedLines = shiftLines(result.lines(), offsetMs);
+        final List<LyricsLine> shiftedRoman = shiftLines(result.romanization(), offsetMs);
+        final Map<String, List<LyricsLine>> shiftedTrans = shiftLineMap(result.translations(), offsetMs);
+        final Map<String, List<LyricsLine>> shiftedRoma = shiftLineMap(result.romanizations(), offsetMs);
+
+        boolean synced = shiftedLines.stream()
                 .anyMatch(line -> line.startTimeMs() != LyricsLine.NO_TIME);
-        return new Lyrics(result.lines(), providerName, synced,
-                result.romanization(), result.translations(),
-                result.romanizations(), combinedSongwriters, ttml, "ttml", sourceUrl);
+
+        final String finalProvider = (providerName != null && !providerName.isEmpty())
+                ? providerName : (result.source() != null ? result.source() : "");
+        final String finalSourceUrl = (sourceUrl != null && !sourceUrl.isEmpty())
+                ? sourceUrl : result.sourceUrl();
+
+        return new Lyrics(shiftedLines, finalProvider, synced,
+                shiftedRoman, shiftedTrans, shiftedRoma,
+                result.songwriters(), result.credits(),
+                ttml, "ttml", finalSourceUrl,
+                result.about(), result.agentNames());
+    }
+
+    private static LyricsLine shiftLine(LyricsLine line, int offsetMs) {
+        if (offsetMs == 0) return line;
+        List<Word> shiftedWords = line.words();
+        if (!shiftedWords.isEmpty()) {
+            List<Word> newWords = new ArrayList<>(shiftedWords.size());
+            for (Word w : shiftedWords) {
+                newWords.add(new Word(w.startMs() + offsetMs, w.endMs() + offsetMs,
+                        w.text(), w.romaji(), w.endsWithSpace(), w.ruby()));
+            }
+            shiftedWords = newWords;
+        }
+        long newStart = line.startTimeMs() != LyricsLine.NO_TIME
+                ? line.startTimeMs() + offsetMs : LyricsLine.NO_TIME;
+        long newEnd = line.endTimeMs() != LyricsLine.NO_TIME
+                ? line.endTimeMs() + offsetMs : LyricsLine.NO_TIME;
+        return new LyricsLine(newStart, newEnd, line.text(), shiftedWords,
+                line.agentId(), line.isDuet(), line.isBG(), line.songPart());
+    }
+
+    private static List<LyricsLine> shiftLines(@Nullable List<LyricsLine> lines, int offsetMs) {
+        if (lines == null || offsetMs == 0) return lines;
+        List<LyricsLine> shifted = new ArrayList<>(lines.size());
+        for (LyricsLine line : lines) {
+            shifted.add(shiftLine(line, offsetMs));
+        }
+        return shifted;
+    }
+
+    private static Map<String, List<LyricsLine>> shiftLineMap(
+            @Nullable Map<String, List<LyricsLine>> map, int offsetMs) {
+        if (map == null || offsetMs == 0) return map;
+        Map<String, List<LyricsLine>> shifted = new HashMap<>(map.size());
+        for (Map.Entry<String, List<LyricsLine>> entry : map.entrySet()) {
+            shifted.put(entry.getKey(), shiftLines(entry.getValue(), offsetMs));
+        }
+        return shifted;
     }
 
     @Nullable
-    private static List<String> combineCredits(@Nullable List<String> existing,
-                                               @Nullable List<String> amllCredits) {
-        if (existing == null && amllCredits == null) {
+    private static List<String> combineCreditLists(@Nullable List<String> first,
+                                                   @Nullable List<String> second) {
+        if (first == null && second == null) {
             return null;
         }
-        if (existing == null) {
-            return amllCredits;
+        if (first == null) {
+            return second;
         }
-        if (amllCredits == null) {
-            return existing;
+        if (second == null) {
+            return first;
         }
-        List<String> combined = new ArrayList<>(existing);
-        combined.addAll(amllCredits);
+        List<String> combined = new ArrayList<>(first);
+        combined.addAll(second);
         return combined;
     }
 
     private record HeadMetadata(
             List<String> songwriters,
             List<String> amllCredits,
+            List<String> morpheCredits,
             Map<String, AgentInfo> agentTypes,
             Map<String, List<RomajiSyllable>> sidecarRoman,
-            Map<String, SidecarTranslation> sidecarTrans) {
+            Map<String, SidecarTranslation> sidecarTrans,
+            @Nullable String desc,
+            @Nullable String morpheSource,
+            @Nullable String morpheSourceUrl,
+            int offsetMs) {
     }
 
     public record TtmlResult(List<LyricsLine> lines,
@@ -1674,8 +1989,12 @@ public final class TtmlParser {
                              @Nullable Map<String, List<LyricsLine>> translations,
                              @Nullable Map<String, List<LyricsLine>> romanizations,
                              @Nullable List<String> songwriters,
-                             @Nullable List<String> amllCreditLines,
-                             @Nullable Map<String, String> agentNames) {
+                             @Nullable List<String> credits,
+                             @Nullable Map<String, String> agentNames,
+                             @Nullable String about,
+                             @Nullable String source,
+                             @Nullable String sourceUrl,
+                             int offsetMs) {
     }
 
     private record RomajiSyllable(long startMs, long endMs, String text) {

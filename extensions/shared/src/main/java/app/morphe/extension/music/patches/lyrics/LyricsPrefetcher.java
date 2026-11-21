@@ -136,7 +136,7 @@ final class LyricsPrefetcher {
             if (LyricsRequests.isCustomMatchMode()) return;
 
             try {
-                LyricsProvider.FetchResult result = provider.fetch(track);
+                LyricsProvider.FetchResult result = provider.fetchBySearch(track);
                 if (result == null || result.lyrics() == null
                         || result.lyrics() == Lyrics.NOT_FOUND) {
                     continue;
@@ -146,7 +146,9 @@ final class LyricsPrefetcher {
 
                 LyricsCache.put(track, LyricsMatch.cacheSourceFor(lyrics), lyrics, null);
                 Logger.printDebug(() -> "Lyrics prefetched: " + track + " via " + provider.name());
-                return;
+                if (!Settings.LYRICS_WORD_SYNC.get() || LyricsRequests.syncRank(lyrics) == 2) {
+                    return;
+                }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return;

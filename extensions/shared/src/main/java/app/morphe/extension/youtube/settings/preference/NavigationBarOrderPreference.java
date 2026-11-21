@@ -83,7 +83,6 @@ import app.morphe.extension.youtube.shared.NavigationBar.NavigationButton;
 
 /**
  * Displays the known YouTube navigation items in a drag-and-drop order and visibility editor.
- * Modified by Codex, 2026-11-03: stage visibility changes alongside the order.
  *
  * <p>The setting is saved only when the dialog's OK button is pressed. Optional items are shown
  * as well, so one saved order can be reused when YouTube changes the active layout.</p>
@@ -232,7 +231,8 @@ public class NavigationBarOrderPreference extends Preference {
         return listView;
     }
 
-    private static List<NavigationButton> getCurrentOrder() {
+    /** Shared with the glass-size preview so both editors use the same order. */
+    static List<NavigationButton> getCurrentOrder() {
         if (!SUPPORTS_ADDITIONAL_ITEMS_AND_ORDER) return new ArrayList<>(DEFAULT_ORDER);
         String serializedOrder = Settings.NAVIGATION_BAR_ORDER.get();
         List<NavigationButton> order = new ArrayList<>();
@@ -279,7 +279,7 @@ public class NavigationBarOrderPreference extends Preference {
         return serialized.toString();
     }
 
-    private static String getLabel(NavigationButton button) {
+    static String getLabel(NavigationButton button) {
         return button == NavigationButton.WATCH_LATER
                 ? str("revanced_change_start_page_entry_watch_later")
                 : str("revanced_change_start_page_entry_" + button.name().toLowerCase(Locale.ROOT));

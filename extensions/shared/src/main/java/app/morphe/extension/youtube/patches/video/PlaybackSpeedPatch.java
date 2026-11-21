@@ -40,17 +40,6 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
-/*
- * Portions of this file are ported from Morphe:
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-patches
- *
- * Original hard forked code:
- * https://github.com/ReVanced/revanced-patches/commit/724e6d61b2ecd868c1a9a37d465a688e83a74799
- *
- * See the included NOTICE file for GPLv3 Section 7 terms that apply to Morphe contributions.
- */
-
 package app.morphe.extension.youtube.patches.video;
 
 import static app.morphe.extension.shared.utils.StringRef.str;
@@ -61,6 +50,7 @@ import androidx.annotation.NonNull;
 
 import org.apache.commons.lang3.BooleanUtils;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -144,15 +134,21 @@ public class PlaybackSpeedPatch {
 
         if (isWhitelisted || isIgnored || isMusic) {
             defaultPlaybackSpeed = 1.0f;
+        } else if (defaultPlaybackSpeed > 0 && defaultPlaybackSpeed != 1.0f
+                && DISABLE_DEFAULT_PLAYBACK_SPEED_MUSIC && !videoId.isEmpty()
+                && !VideoInformation.lastPlayerResponseIsShort()
+                && MusicRequest.getRequestForVideoId(videoId) == null) {
+            // A downloaded video plays without a player request, so it was not prefetched.
+            // MusicRequest applies a successful result through musicRequestCompleted.
+            MusicRequest.fetchRequestIfNeeded(
+                    videoId, DISABLE_DEFAULT_PLAYBACK_SPEED_MUSIC_TYPE, Collections.emptyMap());
         }
 
-        if (defaultPlaybackSpeed > 0 && defaultPlaybackSpeed != 1.0f) {
+        if (defaultPlaybackSpeed > 0) {
             final float speedToApply = defaultPlaybackSpeed;
             Logger.printDebug(() -> "applyDefaultPlaybackSpeed: applying default speed: " + speedToApply);
             VideoInformation.setPlaybackSpeed(speedToApply);
             VideoInformation.overridePlaybackSpeed(speedToApply);
-        } else if (defaultPlaybackSpeed == 1.0f) {
-            VideoInformation.setPlaybackSpeed(1.0f);
         }
     }
 
@@ -174,6 +170,11 @@ public class PlaybackSpeedPatch {
      * Re-arms speed initialization for a player reopening the same video.
      */
     public static void newPlayerStarted() {
+        // Auto may reuse a manual speed within a video, but must not carry it to the next
+        // player or video when remembering speed changes is disabled.
+        if (!Settings.REMEMBER_PLAYBACK_SPEED_LAST_SELECTED.get()) {
+            lastSelectedPlaybackSpeed = 1.0f;
+        }
         userChangedSpeedForCurrentVideo = false;
         newAudioStarted = true;
         newVideoStarted = true;
@@ -193,9 +194,7 @@ public class PlaybackSpeedPatch {
             return;
         }
         videoId = newlyLoadedVideoId;
-        userChangedSpeedForCurrentVideo = false;
-        newAudioStarted = true;
-        newVideoStarted = true;
+        newPlayerStarted();
 
         boolean isMusic = isMusic(newlyLoadedVideoId);
         boolean isWhitelisted = !newlyLoadedChannelId.isEmpty() && Whitelist.isChannelWhitelistedPlaybackSpeed(newlyLoadedChannelId);

@@ -56,6 +56,7 @@ import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.shared.patches.LithoRelayoutPatch;
 import app.morphe.extension.shared.patches.components.ContextInterface;
 import app.morphe.extension.youtube.patches.dearrow.DeArrowTitleIcon;
+import app.morphe.extension.youtube.patches.dearrow.DeArrowBrandingRequest;
 import app.morphe.extension.youtube.patches.utils.ProtoNode;
 import app.morphe.extension.youtube.settings.Settings;
 
@@ -88,6 +89,40 @@ import app.morphe.extension.youtube.settings.Settings;
 public final class RestoreOriginalTitlesPatch {
 
     /**
+     * Fetches the titles of the video again after a vote on its DeArrow titles,
+     * and lays out the shown titles again when fetched. Can be called on any thread.
+     */
+    public static void fetchTitlesAgain(String videoId) {
+        if (USE_DEARROW) {
+            OriginalTitleRequest.fetchAgain(videoId).thenRun(LithoRelayoutPatch::relayoutOutdatedTexts);
+        } else {
+            DeArrowBrandingRequest.removeFromCache(videoId);
+        }
+    }
+
+    /**
+     * Fetches the original title if it was not fetched before.
+     *
+     * @return The title as set by the uploader, which is not translated,
+     *         or null if the video has no available title, or it failed to fetch.
+     */
+    public static CompletableFuture<String> fetchOriginalTitle(String videoId) {
+        return OriginalTitleRequest.fetchOriginalTitleIfNeeded(videoId);
+    }
+
+    /**
+     * Tracks the selected title so a vote can invalidate an already displayed Litho text.
+     * The local title cache stores the selected string rather than upstream's Titles record.
+     */
+    private record VotedTitleSpan(String videoId, String title) implements LithoRelayoutPatch.RelayoutSpan {
+        @Override
+        public boolean isOutdated() {
+            String current = OriginalTitleRequest.getIfFetched(videoId);
+            return current != null && !current.trim().equals(title.trim());
+        }
+    }
+
+    /**
      * If the original titles and descriptions are restored.
      */
     static final boolean RESTORE_ORIGINAL = Settings.RESTORE_ORIGINAL_TITLES.get();
@@ -98,6 +133,9 @@ public final class RestoreOriginalTitlesPatch {
     static final boolean USE_DEARROW = Settings.DEARROW_TITLES.get();
 
     private static final boolean REPLACE_TITLES = RESTORE_ORIGINAL || USE_DEARROW;
+
+    /** If the titles that are not DeArrow titles are cleaned up. */
+    static final boolean CLEAN_UP_TITLES = Settings.DEARROW_CLEAN_UP_TITLES.get();
 
     private static final String DESCRIPTION_IDENTIFIER = "description_rich_text_list.eml";
     /**
@@ -133,6 +171,19 @@ public final class RestoreOriginalTitlesPatch {
      * which has the description state, but the top bar does not show the title.
      */
     private static final String SHORTS_TOP_BAR_IDENTIFIER = "top_bar.eml";
+
+    /**
+     * Video of the card layout, such as the feed videos of a newer A/B test.
+     * Its accessibility label is in the renderer context of the view model, two messages below the view model
+     * that includes the title, and not a field of the view model as in the other video components.
+     */
+    private static final String LOCKUP_IDENTIFIER = "lockup.eml";
+
+    /**
+     * Messages between the view model of {@link #LOCKUP_IDENTIFIER} and its accessibility label
+     * (renderer context, then accessibility context).
+     */
+    private static final int LOCKUP_LABEL_DEPTH = 2;
 
     /**
      * Accessibility id of the link of a Short to a related video, such as the full video of the Short.
@@ -521,7 +572,7 @@ public final class RestoreOriginalTitlesPatch {
             return title;
         }
 
-        String replacement = OriginalTitleRequest.getIfAvailable(videoId);
+        String replacement = OriginalTitleRequest.getIfAvailable(videoId, title);
         return replacement == null ? title : replacement;
     }
 
@@ -616,7 +667,7 @@ public final class RestoreOriginalTitlesPatch {
                     continue;
                 }
 
-                String originalTitle = OriginalTitleRequest.getIfAvailable(videoId);
+                String originalTitle = OriginalTitleRequest.getIfAvailable(videoId, text);
                 if (originalTitle != null && !originalTitle.trim().equals(text) && !isChannelName(videoId, text)) {
                     modified |= replaceTitle(textNodes, text, Collections.emptySet(), originalTitle, null);
                 }
@@ -638,6 +689,12 @@ public final class RestoreOriginalTitlesPatch {
     public static CharSequence onLithoTextLoaded(Object contextSource, CharSequence text) {
         ContextInterface contextInterface = contextSource instanceof ContextInterface context ? context : null;
         try {
+            if (text instanceof Spanned spanned) {
+                VotedTitleSpan[] spans = spanned.getSpans(0, text.length(), VotedTitleSpan.class);
+                if (spans.length > 0 && spans[0].isOutdated()) {
+                    return titleText(text, OriginalTitleRequest.getIfFetched(spans[0].videoId()), null);
+                }
+            }
             if (!REPLACE_TITLES || text == null || DeArrowTitleIcon.hasIcon(text)) {
                 return text;
             }
@@ -689,7 +746,7 @@ public final class RestoreOriginalTitlesPatch {
                     // The title found by the layout of the element is replaced even if no request verified it.
                     for (String layoutVideoId : videoIds) {
                         String replacement = trimmedText.equals(layoutTitles.get(layoutVideoId))
-                                ? OriginalTitleRequest.getIfAvailable(layoutVideoId)
+                                ? OriginalTitleRequest.getIfAvailable(layoutVideoId, trimmedText)
                                 : null;
                         if (replacement != null && !replacement.trim().equals(trimmedText)) {
                             return titleText(translatedText, replacement, null);
@@ -736,7 +793,7 @@ public final class RestoreOriginalTitlesPatch {
             if (isChannelName(videoId, translatedTitle.trim())) {
                 return translatedText;
             }
-            String originalTitle = OriginalTitleRequest.getIfAvailable(videoId);
+            String originalTitle = OriginalTitleRequest.getIfAvailable(videoId, translatedTitle);
             final boolean loading = originalTitle == null;
             if (loading) {
                 if (!OriginalTitleRequest.isPending(videoId)) {
@@ -765,6 +822,14 @@ public final class RestoreOriginalTitlesPatch {
      */
     private static SpannableString titleText(CharSequence text, String title,
                                              @Nullable LithoRelayoutPatch.RelayoutSpan relayoutSpan) {
+        String videoId = DeArrowBrandingRequest.getVideoIdOfTitle(title.trim());
+        if (videoId == null && text instanceof Spanned spanned) {
+            VotedTitleSpan[] spans = spanned.getSpans(0, text.length(), VotedTitleSpan.class);
+            if (spans.length > 0) videoId = spans[0].videoId();
+        }
+        if (videoId != null && relayoutSpan == null) {
+            relayoutSpan = new VotedTitleSpan(videoId, title);
+        }
         if (!DeArrowTitleIcon.isShown(title)) {
             return spannedText(text, title, relayoutSpan);
         }
@@ -788,7 +853,9 @@ public final class RestoreOriginalTitlesPatch {
             final int length = spanned.length();
             for (Object span : spanned.getSpans(0, length, Object.class)) {
                 if (spanned.getSpanStart(span) == 0 && spanned.getSpanEnd(span) == length) {
-                    spannedText.setSpan(span, 0, newLength, spanned.getSpanFlags(span));
+                    if (!(span instanceof VotedTitleSpan)) {
+                        spannedText.setSpan(span, 0, newLength, spanned.getSpanFlags(span));
+                    }
                 }
             }
         }
@@ -853,20 +920,23 @@ public final class RestoreOriginalTitlesPatch {
             CharSequence translatedTitle = view.getText();
             String translatedTitleText = removeTitleMarker(translatedTitle.toString()).trim();
             // Reused views can still show the loading title or a DeArrow title.
-            if (!translatedTitleText.isEmpty() && !translatedTitleText.equals(LOADING_TITLE.toString())
-                    && !DeArrowTitleIcon.hasIcon(translatedTitle)) {
+            final boolean showsTitle = !translatedTitleText.isEmpty()
+                    && !translatedTitleText.equals(LOADING_TITLE.toString())
+                    && !DeArrowTitleIcon.hasIcon(translatedTitle);
+            if (showsTitle) {
                 putTranslatedTitle(translatedTitleText, Collections.emptySet(), videoId);
             }
+            String shownTitle = showsTitle ? translatedTitleText : null;
 
             // Views are reused for other videos, so the title is only set if the view
             // still shows the same video when the title is fetched.
             titleViewVideoIds.put(view, videoId);
 
-            if (OriginalTitleRequest.getIfAvailable(videoId) == null && OriginalTitleRequest.isPending(videoId)) {
+            if (OriginalTitleRequest.getIfAvailable(videoId, shownTitle) == null && OriginalTitleRequest.isPending(videoId)) {
                 view.setText(LOADING_TITLE.toString());
             }
 
-            setViewTitleWhenFetched(new WeakReference<>(view), videoId, translatedTitle);
+            setViewTitleWhenFetched(new WeakReference<>(view), videoId, translatedTitle, shownTitle);
         } catch (Exception ex) {
             Logger.printException(() -> "restoreOriginalTitle failure", ex);
         }
@@ -878,15 +948,16 @@ public final class RestoreOriginalTitlesPatch {
      * The title is null if the video has no available title, or if it failed to fetch.
      */
     private static void setViewTitleWhenFetched(WeakReference<TextView> viewRef, String videoId,
-                                                CharSequence translatedTitle) {
-        OriginalTitleRequest.fetch(videoId).thenAccept(originalTitle -> Utils.runOnMainThreadNowOrLater(() -> {
+                                                CharSequence translatedTitle, @Nullable String shownTitle) {
+        OriginalTitleRequest.fetch(videoId).thenAccept(fetchedTitle -> Utils.runOnMainThreadNowOrLater(() -> {
+            String originalTitle = OriginalTitleRequest.getIfAvailable(videoId, shownTitle);
             TextView titleView = viewRef.get();
             if (titleView == null || !videoId.equals(titleViewVideoIds.get(titleView))) {
                 return;
             }
             if (originalTitle == null && titleView.isShown() && OriginalTitleRequest.isPending(videoId)) {
                 Utils.runOnMainThreadDelayed(
-                        () -> setViewTitleWhenFetched(viewRef, videoId, translatedTitle),
+                        () -> setViewTitleWhenFetched(viewRef, videoId, translatedTitle, shownTitle),
                         OriginalTitleRequest.retryRemainingMilliseconds(videoId) + VIEW_TITLE_RETRY_MARGIN_MILLISECONDS);
                 return;
             }
@@ -1086,7 +1157,7 @@ public final class RestoreOriginalTitlesPatch {
         }
 
         CompletableFuture<String> future = OriginalTitleRequest.fetch(videoId);
-        String replacement = future.getNow(null);
+        String replacement = OriginalTitleRequest.getIfAvailable(videoId, title);
         if (!future.isDone()) {
             future.whenComplete((result, ex) -> Utils.runOnMainThread(onFetched));
             return LOADING_TITLE.toString();
@@ -1699,7 +1770,7 @@ public final class RestoreOriginalTitlesPatch {
                 () -> {
                     String layoutTitle = videoId.equals(openedVideoId) ? findOpenedVideoTitle(textNodes, texts) : null;
                     return layoutTitle == null && elementVideoId
-                            ? findLabeledCandidateTitle(textNodes, texts)
+                            ? findLabeledCandidateTitle(textNodes, texts, component)
                             : layoutTitle;
                 },
                 () -> findCandidateTitle(textNodes, nodeTexts, texts, videoId, elementVideoId, component),
@@ -1761,7 +1832,7 @@ public final class RestoreOriginalTitlesPatch {
             }
             // The video can show a title that no request returns, such as a title tested by the uploader.
             // The title is not saved as a translated title, as no request verified it.
-            String replacement = layoutTitle ? OriginalTitleRequest.getIfAvailable(videoId) : null;
+            String replacement = layoutTitle ? OriginalTitleRequest.getIfAvailable(videoId, candidate) : null;
             return replacement != null && !candidate.equals(replacement.trim())
                     && replaceTitle(textNodes, candidate, Collections.emptySet(), replacement,
                     findLabelOfTitle(candidate, texts));
@@ -1775,7 +1846,7 @@ public final class RestoreOriginalTitlesPatch {
 
         // Titles are saved even if not replaced, so titles of different videos are known.
         Set<String> truncatedTitles = putTranslatedTitle(title, texts, videoId);
-        String originalTitle = OriginalTitleRequest.getIfAvailable(videoId);
+        String originalTitle = OriginalTitleRequest.getIfAvailable(videoId, title);
         if (originalTitle == null) {
             // The text hook replaces the title when the element is laid out.
             return OriginalTitleRequest.isPending(videoId)
@@ -1821,7 +1892,7 @@ public final class RestoreOriginalTitlesPatch {
                 return null;
             }
 
-            title = findLabeledCandidateTitle(textNodes, texts);
+            title = findLabeledCandidateTitle(textNodes, texts, component);
             if (title == null) {
                 // The title at the title path learned for the component.
                 List<String> paths = TitleLayouts.fieldPaths(textNodes);
@@ -1847,7 +1918,7 @@ public final class RestoreOriginalTitlesPatch {
      * @return The title that starts the accessibility label of the video, or null if none.
      */
     @Nullable
-    private static String findLabeledCandidateTitle(List<ProtoNode> textNodes, Set<String> texts) {
+    private static String findLabeledCandidateTitle(List<ProtoNode> textNodes, Set<String> texts, String component) {
         String[] labelAndTitle = findLabeledTitle(texts);
         String labeledLabel = labelAndTitle == null ? null : labelAndTitle[0];
         String labeledTitle = labelAndTitle == null ? null : labelAndTitle[1];
@@ -1866,6 +1937,14 @@ public final class RestoreOriginalTitlesPatch {
                 titleNodes.add(node);
             } else if (text.equals(labeledLabel) && node.getParent() != null) {
                 labelMessages.add(node.getParent());
+                if (component.startsWith(LOCKUP_IDENTIFIER)) {
+                    // The label is in the renderer context of the view model that includes the title.
+                    ProtoNode labelMessage = node.getParent();
+                    for (int depth = 0; depth < LOCKUP_LABEL_DEPTH && labelMessage.getParent() != null; depth++) {
+                        labelMessage = labelMessage.getParent();
+                    }
+                    labelMessages.add(labelMessage);
+                }
             }
         }
         boolean labelOfTitle = false;
@@ -2438,7 +2517,7 @@ public final class RestoreOriginalTitlesPatch {
             if (titles == null || findTitle(id, Collections.singleton(text), titles) == null) {
                 return null;
             }
-            String idReplacement = OriginalTitleRequest.getIfAvailable(id);
+            String idReplacement = OriginalTitleRequest.getIfAvailable(id, text);
             if (videoId == null) {
                 videoId = id;
                 replacement = idReplacement;

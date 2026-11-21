@@ -1032,12 +1032,12 @@ public final class CaptionsFetcher {
         for (int k = 0; k < total - 1; k++) {
             Word word = words.get(k);
             words.set(k, new Word(word.startMs(), words.get(k + 1).startMs(), word.text(),
-                    null, word.endsWithSpace()));
+                    word.romaji(), word.endsWithSpace(), word.ruby()));
         }
         Word last = words.get(total - 1);
         words.set(total - 1, new Word(last.startMs(),
                 eventEndMs > last.startMs() ? eventEndMs : last.startMs(), last.text(),
-                null, last.endsWithSpace()));
+                last.romaji(), last.endsWithSpace(), last.ruby()));
         return words;
     }
 
@@ -1159,9 +1159,9 @@ public final class CaptionsFetcher {
                         outcome.translationLyrics.lines());
                 result = new Lyrics(result.lines(), result.providerName(), result.synced(),
                         result.romanization(), translations,
-                        result.romanizations(), result.songwriters(),
+                        result.romanizations(), result.songwriters(), result.credits(),
                         result.rawFormat(), result.formatType(),
-                        result.sourceUrl());
+                        result.sourceUrl(), result.about(), result.agentNames());
             }
 
             return FetchResult.of(result);

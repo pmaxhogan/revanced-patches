@@ -7,6 +7,8 @@
 
 package app.morphe.extension.youtube.patches;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Base64;
@@ -42,7 +44,8 @@ public final class OpenSystemShareSheetPatch {
     private static final int ENTITY_COMMENT_FIELD = 18;
     /**
      * Fields of the entities shared with a plain link.
-     * 10, 12 and 20 are Shorts and entity type metadata that does not change the link.
+     * 10, 12 and 20 are Shorts and entity type metadata, and 13 is set on videos made for kids
+     * (their in-app share sheet only has Copy link and More), none of which changes the link.
      */
     private static final Set<Integer> SHARE_ENTITY_FIELDS = Set.of(
             ENTITY_VIDEO_ID_FIELD,
@@ -50,7 +53,7 @@ public final class OpenSystemShareSheetPatch {
             ENTITY_CHANNEL_ID_FIELD,
             ENTITY_POST_ID_FIELD,
             ENTITY_POST_CHANNEL_ID_FIELD,
-            10, 12, 20
+            10, 12, 13, 20
     );
 
     // Comment entity fields. 3, 4 and 6 are the header, text and avatar of the share sheet.
@@ -142,7 +145,9 @@ public final class OpenSystemShareSheetPatch {
         if (videoId != null && playlistId == null) {
             return videoURLPrefix + videoId;
         }
-        if (playlistId != null && videoId == null) {
+        // Mixes (playlist ids starting with RD) have no playlist page, and their link only opens
+        // with a video, which the entity does not have. The in-app share sheet shares them instead.
+        if (playlistId != null && videoId == null && !playlistId.startsWith("RD")) {
             return longURLPrefix + "/playlist?list=" + playlistId;
         }
         return null;
@@ -225,10 +230,20 @@ public final class OpenSystemShareSheetPatch {
         shareIntent.setType("text/plain");
         shareIntent.putExtra(Intent.EXTRA_TEXT, intentUrl);
         final Intent chooserIntent = Intent.createChooser(shareIntent, "");
-        chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        // Opening the share sheet is not the user leaving the app, so a playing video does not
+        // enter picture-in-picture. It is opened in the task of the app when the activity is known,
+        // as some devices put YouTube in the background and enter picture-in-picture
+        // when it opens in a new task.
+        chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        Activity activity = Utils.getActivity();
+        Context context = activity;
+        if (activity == null || activity.isFinishing()) {
+            context = Utils.getContext();
+            chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
 
         try {
-            Utils.getContext().startActivity(chooserIntent);
+            context.startActivity(chooserIntent);
         } catch (Exception ex) {
             Logger.printException(() -> "Can not open System Share panel: " + intentUrl, ex);
         }

@@ -12,15 +12,20 @@ package app.morphe.patches.youtube.general.autocaptions
 
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.literal
+import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
+import app.morphe.patcher.extensions.InstructionExtensions.removeInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.util.getReference
 import app.morphe.util.forEachInlinedFeatureFlagSite
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
-import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
 import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patches.shared.startVideoInformerFingerprint
+import app.morphe.patches.youtube.video.information.onCreateHook
+import app.morphe.patches.youtube.video.information.videoInformationPatch
 import app.morphe.patches.shared.captions.baseAutoCaptionsPatch
 import app.morphe.patches.shared.captions.subtitleTrackFingerprint
 import app.morphe.patches.youtube.utils.compatibility.Constants.COMPATIBILITY_YOUTUBE
@@ -60,6 +65,7 @@ val autoCaptionsPatch = bytecodePatch(
     dependsOn(
         translatedCaptionPensPatch,
         baseAutoCaptionsPatch,
+        videoInformationPatch,
         autoTranslateCaptionsPatch,
         settingsPatch,
         versionCheckPatch,
@@ -68,17 +74,60 @@ val autoCaptionsPatch = bytecodePatch(
     execute {
 
         if (is_20_26_or_greater) {
-            // The base patch keeps the legacy Boolean setting for older YouTube versions and Music.
-            // YouTube 20.26+ replaces only that injected call with the four-state setting.
+            // The modern subtitle-manager hook replaces the base patch's five-instruction
+            // legacy early-return block. Older YouTube versions and Music keep that block.
             subtitleTrackFingerprint.methodOrThrow().apply {
                 val legacyCallIndex = indexOfFirstInstructionOrThrow {
                     getReference<MethodReference>()?.toString() ==
                         "$EXTENSION_CLASS_DESCRIPTOR->disableAutoCaptions()Z"
                 }
-                replaceInstruction(
-                    legacyCallIndex,
-                    "invoke-static {}, $EXTENSION_CLASS_DESCRIPTOR->disableAutoCaptionsByStyle()Z",
-                )
+                removeInstructions(legacyCallIndex, 5)
+            }
+
+            SubtitleManagerFingerprint.let {
+                it.clearMatch()
+                it.method.apply {
+                    val index = it.instructionMatches.last().index
+                    val register = getInstruction<OneRegisterInstruction>(index).registerA
+                    addInstructions(
+                        index,
+                        """
+                            invoke-static { v$register }, $EXTENSION_CLASS_DESCRIPTOR->disableAutoCaptions(Z)Z
+                            move-result v$register
+                        """
+                    )
+
+                    // Read at the start of the method, before the hook above, so its index is not moved by it.
+                    val reasonIndex = it.instructionMatches.first().index
+                    val reasonRegister = getInstruction<TwoRegisterInstruction>(reasonIndex).registerA
+                    addInstruction(
+                        reasonIndex + 1,
+                        "invoke-static { v$reasonRegister }, $EXTENSION_CLASS_DESCRIPTOR->setCaptionSelectionReason(I)V"
+                    )
+                }
+            }
+
+            onCreateHook(EXTENSION_CLASS_DESCRIPTOR, "newVideoStarted")
+            startVideoInformerFingerprint.method.addInstruction(
+                0,
+                "invoke-static {}, $EXTENSION_CLASS_DESCRIPTOR->videoInformationLoaded()V"
+            )
+
+            // Rematch after caption dependencies may have changed the subtitle manager method.
+            SubtitleManagerForcedTrackFingerprint.let {
+                it.clearMatch()
+                it.method.apply {
+                    val index = it.instructionMatches.first().index
+                    val register = getInstruction<TwoRegisterInstruction>(index).registerA
+
+                    addInstructions(
+                        index + 1,
+                        """
+                            invoke-static { v$register }, $EXTENSION_CLASS_DESCRIPTOR->showForcedCaptions(Z)Z
+                            move-result v$register
+                        """
+                    )
+                }
             }
 
             // 21.39 inlines the flag getter into its callers, so the dedicated getter method

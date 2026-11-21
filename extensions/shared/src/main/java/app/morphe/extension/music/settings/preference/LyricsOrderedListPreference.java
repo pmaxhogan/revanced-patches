@@ -236,7 +236,10 @@ public final class LyricsOrderedListPreference extends Preference {
                 || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
-        LyricsProviderConfigDialog.show(activity, id, promptSettingFor(kind()), this::updateSummary);
+        final StringSetting rubyPrompt = kind() == Kind.ROMANIZATION
+                ? Settings.LYRICS_AI_RUBY_PROMPT : null;
+        LyricsProviderConfigDialog.show(activity, id, promptSettingFor(kind()), rubyPrompt,
+                this::updateSummary);
     }
 
     /** The prompt an AI service is sent; DeepL translates without one. */
@@ -639,7 +642,11 @@ public final class LyricsOrderedListPreference extends Preference {
 
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(Dim.dp20, 0, Dim.dp20, 0);
+        root.setClipToPadding(false);
+        // Use the same themed insets as the native preferences around this custom row.
+        // A fixed 20dp disagrees with YouTube Music's start/end preference padding.
+        View nativeRow = super.getView(null, parent);
+        root.setPaddingRelative(nativeRow.getPaddingStart(), 0, nativeRow.getPaddingEnd(), 0);
         root.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.setOnClickListener(v -> {
@@ -674,7 +681,9 @@ public final class LyricsOrderedListPreference extends Preference {
 
         rowsContainer = new LinearLayout(context);
         rowsContainer.setOrientation(LinearLayout.VERTICAL);
-        root.addView(rowsContainer);
+        LinearLayout.LayoutParams rowsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        root.addView(rowsContainer, rowsParams);
 
         rebuildRows();
 

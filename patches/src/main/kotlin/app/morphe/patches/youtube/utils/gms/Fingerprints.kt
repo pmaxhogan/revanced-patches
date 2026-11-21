@@ -24,9 +24,7 @@ import com.android.tools.smali.dexlib2.Opcode
 internal object SpecificNetworkErrorViewControllerFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
-    parameters = emptyList(),
     filters = listOf(
-        literal(icOfflineNoContentUpsideDown),
         literal(offlineNoContentBodyTextNotOfflineEligible),
         methodCall(name = "getString", returnType = "Ljava/lang/String;"),
         opcode(Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately())
@@ -65,5 +63,16 @@ internal object GmsDeviceComplianceCheckFingerprint : Fingerprint(
             returnType = "V",
             opcode = Opcode.INVOKE_VIRTUAL
         )
+    )
+)
+
+/**
+ * Asks GmsCore if the account has a capability, such as being a supervised account.
+ */
+internal object AccountHasCapabilitiesFingerprint : Fingerprint(
+    returnType = "Ljava/lang/Integer;",
+    parameters = listOf("Landroid/accounts/Account;", "[Ljava/lang/String;"),
+    filters = listOf(
+        string("This call can involve network request. It is unsafe to call from main thread.")
     )
 )

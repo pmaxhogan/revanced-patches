@@ -1,9 +1,4 @@
 /*
- * Portions of this file are ported from Morphe:
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-patches
- *
- * Portions of this file are modified by anddea:
  * Copyright (C) 2026 anddea
  * https://github.com/anddea/revanced-patches
  *
@@ -480,13 +475,17 @@ internal fun getModernChannelIdFingerprint(playerResponseType: String) = object 
     ),
 ) {}
 
+/**
+ * The channel name is read for the "Person" metadata of the app indexing.
+ * Some targets, such as 21.09, have the "setMetadata may only be called once" check in another place.
+ */
 internal fun getModernChannelNameFingerprint(playerResponseType: String) = object : Fingerprint(
     filters = listOf(
-        string("setMetadata may only be called once"),
+        string("Person"),
         patcherMethodCall(
             definingClass = playerResponseType,
             returnType = "Ljava/lang/String;",
-            location = MatchAfterWithin(30),
+            location = MatchAfterWithin(5),
         ),
     ),
 ) {}

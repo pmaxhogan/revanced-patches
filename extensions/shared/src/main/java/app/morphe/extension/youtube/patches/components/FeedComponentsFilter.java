@@ -80,6 +80,7 @@ public final class FeedComponentsFilter extends Filter {
     private static final Set<String> EXPLORE_PAGE_BROWSE_IDS = Set.of(
             MOVIES_PAGE_BROWSE_ID,
             "FEchannel_memberships",
+            "FEhype_leaderboard",
             "UC-9-kyTW8ZkZNDHQJ6FgpwQ",
             "UC4R8DWoMoI7CAwX8_LjQHig",
             "UCOpNcN46UbXVtpKMrmU4Abg",
@@ -113,9 +114,13 @@ public final class FeedComponentsFilter extends Filter {
     private final ByteArrayFilterGroup channelProfileSubscribeButtonBuffer;
     private final ByteArrayFilterGroup buttonComponentBuffer;
     private final StringFilterGroup carouselShelves;
+    private final StringFilterGroup forYouShelf;
+    private final StringFilterGroup playables;
     private final StringFilterGroup chipBar;
     private final StringFilterGroup chipsShelf;
     private final StringFilterGroup compactChannel;
+    private final StringFilterGroup compactChannelMusicBanner;
+    private final ByteArrayFilterGroup youtubeMusicChannelLink;
     private final StringFilterGroup communityPosts;
     private final StringFilterGroup expandableCard;
     private final ByteArrayFilterGroup productCardBuffer;
@@ -128,6 +133,7 @@ public final class FeedComponentsFilter extends Filter {
     private final StringFilterGroup liveStream;
     private final ByteArrayFilterGroup liveStreamBuffer;
     private final StringFilterGroup videoLabels;
+    private final StringFilterGroup videoMetadataLabels;
     private final ByteArrayFilterGroupList videoLabelsGroupList = new ByteArrayFilterGroupList();
     private final StringFilterGroup videoRecommendationLabels;
 
@@ -291,6 +297,18 @@ public final class FeedComponentsFilter extends Filter {
                 "compact_channel.e"
         );
 
+        // With some device layouts, such as Automotive, the YouTube Music button of a channel
+        // in the search results is a banner below the channel instead of a button of the channel.
+        compactChannelMusicBanner = new StringFilterGroup(
+                Settings.HIDE_CHANNEL_BUTTONS,
+                "button_banner.e"
+        );
+
+        youtubeMusicChannelLink = new ByteArrayFilterGroup(
+                null,
+                "vnd.youtube.music://music.youtube.com/channel/"
+        );
+
         final StringFilterGroup membersShelf = new StringFilterGroup(
                 Settings.HIDE_MEMBERS_SHELF,
                 "member_recognition_shelf"
@@ -329,9 +347,9 @@ public final class FeedComponentsFilter extends Filter {
 
         // It appears YouTube no longer uses this keyword.
         // Just in case, I won't remove this filter until 2025.
-        final StringFilterGroup forYouShelf = new StringFilterGroup(
-                Settings.HIDE_CAROUSEL_SHELF_HOME,
-                "mixed_content_shelf"
+        forYouShelf = new StringFilterGroup(
+                null,
+                "mixed_content_shelf.e"
         );
 
         final StringFilterGroup imageShelf = new StringFilterGroup(
@@ -358,10 +376,10 @@ public final class FeedComponentsFilter extends Filter {
                 "set_reminder_button"
         );
 
-        final StringFilterGroup playables = new StringFilterGroup(
+        playables = new StringFilterGroup(
                 Settings.HIDE_PLAYABLES,
-                "horizontal_gaming_shelf",
-                "mini_game_card."
+                "horizontal_gaming_shelf.e",
+                "mini_game_card.e"
         );
 
         final StringFilterGroup subscribedChannelsBar = new StringFilterGroup(
@@ -388,6 +406,12 @@ public final class FeedComponentsFilter extends Filter {
                 null,
                 "|badge.e"
         );
+        // Labels such as 'Auto-dubbed' or 'Hyped' in the metadata of the feed cards of a newer A/B test.
+        videoMetadataLabels = new StringFilterGroup(
+                null,
+                "content_metadata.e"
+        );
+
         videoLabelsGroupList.addAll(
                 new ByteArrayFilterGroup(
                         Settings.HIDE_AUTO_DUBBED_LABEL,
@@ -405,6 +429,8 @@ public final class FeedComponentsFilter extends Filter {
                 null,
                 "horizontal_video_shelf.",
                 "horizontal_shelf.",
+                // Newer shelves with a header and a row of items.
+                "horizontal_shelf_slots.e",
                 "horizontal_shelf_inline.",
                 "horizontal_tile_shelf."
         );
@@ -422,7 +448,7 @@ public final class FeedComponentsFilter extends Filter {
 
         playablesBuffer = new ByteArrayFilterGroup(
                 Settings.HIDE_PLAYABLES,
-                "mini_game"
+                "FEmini_app_destination"
         );
 
         ticketShelfBuffer = new ByteArrayFilterGroup(
@@ -441,6 +467,7 @@ public final class FeedComponentsFilter extends Filter {
                 channelProfileSubscribeButton,
                 chipBar,
                 compactChannel,
+                compactChannelMusicBanner,
                 expandableCard,
                 forYouShelf,
                 imageShelf,
@@ -456,6 +483,7 @@ public final class FeedComponentsFilter extends Filter {
                 surveys,
                 ticketShelfPath,
                 videoLabels,
+                videoMetadataLabels,
                 videoRecommendationLabels
         );
     }
@@ -539,9 +567,15 @@ public final class FeedComponentsFilter extends Filter {
             return hideSearch;
         }
 
+        final String currentBrowseId = browseId;
+        // The fragment endpoint is updated before its shelves are filtered. The selected
+        // navigation button and RootView browse id can still belong to the previous tab,
+        // especially with the additional Watch later tab. Preserve Library shelves on first open.
+        if (StringUtils.equalsAny(currentBrowseId, BROWSE_ID_LIBRARY, BROWSE_ID_LIBRARY_PLAYLIST)) {
+            return false;
+        }
         // The pages of the Explore menu show their videos in horizontal shelves, so hiding the shelves
         // left them empty (https://github.com/MorpheApp/morphe-patches/issues/1362).
-        final String currentBrowseId = browseId;
         if (EXPLORE_PAGE_BROWSE_IDS.contains(currentBrowseId)
                 || currentBrowseId.endsWith(EXPLORE_PAGE_BROWSE_ID_SUFFIX)) {
             return false;
@@ -633,6 +667,10 @@ public final class FeedComponentsFilter extends Filter {
             return StringUtils.contains(path, "button.e");
         }
 
+        if (matchedGroup == compactChannelMusicBanner) {
+            return youtubeMusicChannelLink.check(buffer).isFiltered();
+        }
+
         if (matchedGroup == communityPosts) {
             // This fork also lets users hide posts on channel pages explicitly.
             if (!PlayerType.getCurrent().isMaximizedOrFullscreen()
@@ -682,7 +720,12 @@ public final class FeedComponentsFilter extends Filter {
             };
         }
 
-        if (matchedGroup == carouselShelves) {
+        if (matchedGroup == playables) {
+            return !("FEmini_app_destination".equals(browseId));
+        }
+
+        // Both shelf types need the page exemptions in hideShelves().
+        if (matchedGroup == carouselShelves || matchedGroup == forYouShelf) {
             if (contentIndex == 0) {
                 return playablesBuffer.check(buffer).isFiltered()
                         || ticketShelfBuffer.check(buffer).isFiltered()
@@ -716,6 +759,12 @@ public final class FeedComponentsFilter extends Filter {
 
         if (matchedGroup == videoLabels) {
             return ExtendedUtils.IS_20_31_OR_GREATER && videoLabelsGroupList.check(buffer).isFiltered();
+        }
+
+        if (matchedGroup == videoMetadataLabels) {
+            // Only the label itself, and not a larger part of the metadata that contains a label.
+            return new BufferAsciiStrings(buffer).getStrings().startsWith("badge.e")
+                    && videoLabelsGroupList.check(buffer).isFiltered();
         }
 
         if (matchedGroup == videoRecommendationLabels) {

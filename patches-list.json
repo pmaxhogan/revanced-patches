@@ -1,13 +1,16 @@
 {
-  "version": "4.4.0-dev.5",
+  "version": "4.4.0-dev.8",
   "patches": [
     {
       "name": "Ambient mode control",
-      "description": "Forces Ambient mode on and adds options to bypass power saving restrictions for Ambient mode and disable it entirely or in fullscreen.",
+      "description": "Adds Enhanced Ambient mode and options to force Ambient mode on, bypass its power saving restrictions, and disable it entirely or in fullscreen.",
       "use": true,
       "dependencies": [
         "ResourcePatch",
         "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
@@ -128,7 +131,7 @@
     },
     {
       "name": "Captions",
-      "description": "Adds options to disable captions from being automatically enabled, select a preferred and a secondary caption language, add more auto-translate languages, and show captions in stable blocks.",
+      "description": "Adds options to disable captions from being automatically enabled, select a preferred and a secondary caption language, add more auto-translate languages, and show captions in stable blocks. Stable blocks and bilingual captions work with YouTube 21.15 and newer, on Android 10 and newer.",
       "use": true,
       "dependencies": [
         "ResourcePatch",
@@ -550,6 +553,9 @@
         "BytecodePatch",
         "ResourcePatch",
         "BytecodePatch",
+        "BytecodePatch",
+        "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
@@ -709,6 +715,7 @@
       "description": "Adds an option to disable captions from being automatically enabled.",
       "use": true,
       "dependencies": [
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
@@ -890,6 +897,9 @@
       "description": "Adds support to download songs and playlists for offline playback in YouTube Music's own device files library and player.",
       "use": true,
       "dependencies": [
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
         "ResourcePatch",
@@ -1155,7 +1165,8 @@
           "values": {
             "ReVanced MicroG": "app.revanced",
             "Original MicroG": "com.google",
-            "Vanced MicroG": "com.mgoogle"
+            "Vanced MicroG": "com.mgoogle",
+            "Reseam GmsCore": "app.reseam"
           }
         },
         {
@@ -1238,7 +1249,8 @@
           "values": {
             "ReVanced MicroG": "app.revanced",
             "Original MicroG": "com.google",
-            "Vanced MicroG": "com.mgoogle"
+            "Vanced MicroG": "com.mgoogle",
+            "Reseam GmsCore": "app.reseam"
           }
         },
         {
@@ -1404,6 +1416,7 @@
         "BytecodePatch",
         "ResourcePatch",
         "ResourcePatch",
+        "ResourcePatch",
         "BytecodePatch",
         "ResourcePatch"
       ],
@@ -1424,6 +1437,7 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
         "ResourcePatch",
@@ -1534,6 +1548,7 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
         "ResourcePatch",
@@ -1687,6 +1702,7 @@
       "use": true,
       "dependencies": [
         "BytecodePatch",
+        "BytecodePatch",
         "ResourcePatch",
         "ResourcePatch",
         "BytecodePatch",
@@ -1725,6 +1741,7 @@
       "description": "Adds options to hide or change components related to the navigation bar.",
       "use": true,
       "dependencies": [
+        "BytecodePatch",
         "BytecodePatch",
         "ResourcePatch",
         "ResourcePatch",
@@ -1962,6 +1979,7 @@
         "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
+        "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
@@ -2000,6 +2018,28 @@
         "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
+        "BytecodePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "ResourcePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "21.39.525",
+          "21.13.164",
+          "20.05.46"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Playlist improvements",
+      "description": "Adds options to widen playlist drag handles, reorder videos by long press, and hide removal confirmations.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "BytecodePatch",
         "ResourcePatch",
         "BytecodePatch",
         "BytecodePatch",
@@ -2022,8 +2062,7 @@
         "BytecodePatch",
         "ResourcePatch",
         "BytecodePatch",
-        "ResourcePatch",
-        "BytecodePatch"
+        "ResourcePatch"
       ],
       "compatiblePackages": {
         "com.google.android.apps.youtube.music": [
@@ -2043,8 +2082,7 @@
       "dependencies": [
         "BytecodePatch",
         "ResourcePatch",
-        "ResourcePatch",
-        "BytecodePatch"
+        "ResourcePatch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
@@ -2437,7 +2475,8 @@
         "BytecodePatch",
         "BytecodePatch",
         "BytecodePatch",
-        "BytecodePatch"
+        "BytecodePatch",
+        "Patch"
       ],
       "compatiblePackages": {
         "com.google.android.youtube": [
@@ -2538,6 +2577,7 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "BytecodePatch"
       ],
       "compatiblePackages": {
@@ -2555,6 +2595,7 @@
       "use": true,
       "dependencies": [
         "ResourcePatch",
+        "BytecodePatch",
         "ResourcePatch",
         "BytecodePatch",
         "BytecodePatch",
@@ -3264,6 +3305,27 @@
           "values": null
         }
       ]
+    },
+    {
+      "name": "Ungroup notifications",
+      "description": "Adds an option to show every video of the notifications that YouTube groups by channel as its own notification.",
+      "use": true,
+      "dependencies": [
+        "BytecodePatch",
+        "ResourcePatch",
+        "ResourcePatch",
+        "BytecodePatch",
+        "BytecodePatch",
+        "BytecodePatch"
+      ],
+      "compatiblePackages": {
+        "com.google.android.youtube": [
+          "21.39.525",
+          "21.13.164",
+          "20.05.46"
+        ]
+      },
+      "options": []
     },
     {
       "name": "Unlock queue",

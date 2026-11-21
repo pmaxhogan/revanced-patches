@@ -80,6 +80,9 @@
             <SwitchPreference android:title="@string/revanced_override_video_download_button_title" android:key="revanced_override_video_download_button" android:summaryOn="@string/revanced_override_video_download_button_queue_manager_summary_off" android:summaryOff="@string/revanced_override_video_download_button_summary_off" />
             <app.morphe.extension.youtube.settings.preference.ExternalDownloaderVideoPreference android:title="@string/revanced_external_downloader_package_name_video_title" android:key="revanced_external_downloader_package_name_video" android:summary="@string/revanced_external_downloader_package_name_playlist_summary" />
             <SwitchPreference android:title="@string/revanced_overlay_button_external_downloader_queue_manager_title" android:key="revanced_override_video_download_button_queue_manager" android:summaryOn="@string/revanced_override_video_download_button_queue_manager_summary_on" android:summaryOff="@string/revanced_override_video_download_button_queue_manager_summary_off" />
+            <SwitchPreference android:title="@string/morphe_feed_download_flyout_button_title" android:key="morphe_feed_download_flyout_button" android:defaultValue="true" android:summary="@string/morphe_feed_download_flyout_button_summary" />
+            <SwitchPreference android:title="@string/morphe_native_downloads_title" android:key="morphe_native_downloads" android:defaultValue="true" android:summary="@string/morphe_native_downloads_summary" />
+            <SwitchPreference android:title="@string/morphe_download_force_4k_title" android:key="morphe_download_force_4k" android:defaultValue="false" android:summary="@string/morphe_download_force_4k_summary" />
             <SwitchPreference android:title="@string/revanced_in_app_downloader_title" android:key="revanced_in_app_downloader" android:summaryOn="@string/revanced_in_app_downloader_summary_on" android:summaryOff="@string/revanced_in_app_downloader_summary_off" />
             <SwitchPreference android:title="@string/revanced_replace_downloads_page_title" android:key="revanced_replace_downloads_page" android:summaryOn="@string/revanced_replace_downloads_page_summary_on" android:summaryOff="@string/revanced_replace_downloads_page_summary_off" />
             <app.morphe.extension.youtube.settings.preference.OpenOfflineLibraryPreference android:title="@string/revanced_open_offline_library_title" android:key="revanced_open_offline_library" android:summary="@string/revanced_open_offline_library_summary" />SETTINGS: HOOK_DOWNLOAD_ACTIONS -->
@@ -100,11 +103,21 @@
         <!-- SETTINGS: HIDE_NAVIGATION_COMPONENTS
         <PreferenceScreen android:title="@string/revanced_preference_screen_navigation_bar_title" android:key="revanced_preference_screen_navigation_bar" android:summary="@string/revanced_preference_screen_navigation_bar_summary">SETTINGS: HIDE_NAVIGATION_COMPONENTS -->
 
+            <!-- SETTINGS: HIDE_NAVIGATION_COMPONENTS
+            <SwitchPreference android:key="revanced_swipe_navigation" android:title="@string/revanced_swipe_navigation_title" android:summary="@string/revanced_swipe_navigation_summary" />SETTINGS: HIDE_NAVIGATION_COMPONENTS -->
+
             <!-- SETTINGS: REORDER_NAVIGATION_BAR
             <app.morphe.extension.youtube.settings.preference.NavigationBarOrderPreference android:title="@string/revanced_navigation_bar_order_title" android:key="revanced_navigation_bar_order" android:summary="@string/revanced_navigation_bar_order_summary" />SETTINGS: REORDER_NAVIGATION_BAR -->
 
             <!-- SETTINGS: HIDE_NAVIGATION_COMPONENTS
             <SwitchPreference android:title="@string/revanced_enable_narrow_navigation_buttons_title" android:key="revanced_enable_narrow_navigation_buttons" android:summaryOn="@string/revanced_enable_narrow_navigation_buttons_summary_on" android:summaryOff="@string/revanced_enable_narrow_navigation_buttons_summary_off" />SETTINGS: HIDE_NAVIGATION_COMPONENTS -->
+
+            <!-- SETTINGS: NAVIGATION_BAR_GLASS
+            <SwitchPreference android:key="morphe_navigation_bar_glass" android:title="@string/morphe_navigation_bar_glass_title" android:summary="@string/morphe_navigation_bar_glass_summary" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:key="morphe_navigation_bar_glass_opacity" android:title="@string/morphe_navigation_bar_glass_opacity_title" android:summary="@string/morphe_navigation_bar_glass_opacity_summary" />
+            <SwitchPreference android:key="morphe_navigation_bar_glass_round" android:title="@string/morphe_navigation_bar_glass_round_title" android:summary="@string/morphe_navigation_bar_glass_round_summary" />
+            <SwitchPreference android:key="morphe_navigation_bar_glass_edge" android:title="@string/morphe_navigation_bar_glass_edge_title" android:summary="@string/morphe_navigation_bar_glass_edge_summary" />
+            <app.morphe.extension.youtube.settings.preference.GlassNavigationBarPreference android:key="morphe_navigation_bar_glass_height" android:title="@string/morphe_navigation_bar_glass_size_title" android:summary="@string/morphe_navigation_bar_glass_size_summary" />SETTINGS: NAVIGATION_BAR_GLASS -->
 
             <!-- SETTINGS: ANIMATED_NAVIGATION_BAR
             <SwitchPreference android:title="@string/revanced_navigation_bar_animations_title" android:key="revanced_navigation_bar_animations" android:summary="@string/revanced_navigation_bar_animations_summary" />SETTINGS: ANIMATED_NAVIGATION_BAR -->
@@ -130,6 +143,10 @@
 
             <!-- SETTINGS: NAVIGATION_BAR_STYLE
             <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:title="@string/morphe_navigation_bar_style_title" android:key="morphe_navigation_bar_style" android:entries="@array/morphe_navigation_bar_style_entries" android:entryValues="@array/morphe_navigation_bar_style_entry_values" />SETTINGS: NAVIGATION_BAR_STYLE -->
+
+            <!-- SETTINGS: HIDE_STATUS_BAR
+            <SwitchPreference android:key="morphe_hide_status_bar" android:title="@string/morphe_hide_status_bar_title" android:summary="@string/morphe_hide_status_bar_summary" />
+            <SwitchPreference android:key="morphe_fix_status_bar_layout" android:title="@string/morphe_fix_status_bar_layout_title" android:summary="@string/morphe_fix_status_bar_layout_summary" />SETTINGS: HIDE_STATUS_BAR -->
 
             <!-- SETTINGS: STATUS_BAR_TRANSLUCENCY
             <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_status_bar_translucency_entries" android:title="@string/revanced_status_bar_translucency_title" android:key="revanced_status_bar_translucency" android:entryValues="@array/revanced_status_bar_translucency_entry_values" />SETTINGS: STATUS_BAR_TRANSLUCENCY -->
@@ -265,8 +282,6 @@
         <!-- SETTINGS: CHANGE_FORM_FACTOR
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_change_form_factor_entries" android:title="@string/revanced_change_form_factor_title" android:key="revanced_change_form_factor" android:entryValues="@array/revanced_change_form_factor_entry_values" />SETTINGS: CHANGE_FORM_FACTOR -->
 
-        <!-- SETTINGS: TABLET_LAYOUT_IN_PLAYER
-        <SwitchPreference android:title="@string/morphe_tablet_layout_in_player_title" android:key="morphe_tablet_layout_in_player" android:summary="@string/morphe_tablet_layout_in_player_summary" />SETTINGS: TABLET_LAYOUT_IN_PLAYER -->
 
         <!-- SETTINGS: SPOOF_APP_VERSION
         <SwitchPreference android:title="@string/revanced_spoof_app_version_title" android:key="revanced_spoof_app_version" android:summaryOn="@string/revanced_spoof_app_version_summary_on" android:summaryOff="@string/revanced_spoof_app_version_summary_off" />
@@ -296,11 +311,13 @@
 
 
     <!-- PREFERENCE_SCREEN: DEARROW
-    <PreferenceScreen android:title="@string/morphe_dearrow_screen_title" android:key="revanced_preference_screen_alt_thumbnails">PREFERENCE_SCREEN: DEARROW -->
+    <PreferenceScreen android:title="@string/morphe_dearrow_vote_title" android:key="revanced_preference_screen_alt_thumbnails">PREFERENCE_SCREEN: DEARROW -->
 
         <!-- SETTINGS: DEARROW
+        <app.morphe.extension.youtube.settings.preference.DeArrowVoteButtonSwitchPreference android:title="@string/morphe_dearrow_vote_button_title" android:key="morphe_dearrow_vote_button" android:summary="@string/morphe_dearrow_vote_button_summary" />
         <SwitchPreference android:title="@string/morphe_dearrow_titles_title" android:key="morphe_dearrow_titles" android:summary="@string/morphe_dearrow_titles_summary" />
         <SwitchPreference android:title="@string/morphe_dearrow_titles_icon_title" android:key="morphe_dearrow_titles_icon" android:summary="@string/morphe_dearrow_titles_icon_summary" android:dependency="morphe_dearrow_titles" />
+        <SwitchPreference android:key="morphe_dearrow_clean_up_titles" android:title="@string/morphe_dearrow_clean_up_titles_title" android:summary="@string/morphe_dearrow_clean_up_titles_summary" />
         <SwitchPreference android:title="@string/morphe_dearrow_casual_mode_title" android:key="morphe_dearrow_casual_mode" android:summary="@string/morphe_dearrow_casual_mode_summary" android:dependency="morphe_dearrow_titles" />
         <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:title="@string/morphe_dearrow_casual_mode_min_votes_title" android:key="morphe_dearrow_casual_mode_min_votes" android:summary="@string/morphe_dearrow_casual_mode_min_votes_summary" android:dependency="morphe_dearrow_casual_mode" android:defaultValue="2" android:inputType="number" />
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_alt_thumbnail_options_entries" android:title="@string/revanced_alt_thumbnail_home_title" android:key="revanced_alt_thumbnail_home" android:entryValues="@array/revanced_alt_thumbnail_options_entry_values" />
@@ -308,7 +325,12 @@
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_alt_thumbnail_options_entries" android:title="@string/revanced_alt_thumbnail_search_title" android:key="revanced_alt_thumbnail_search" android:entryValues="@array/revanced_alt_thumbnail_options_entry_values" />
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_alt_thumbnail_options_entries" android:title="@string/revanced_alt_thumbnail_subscriptions_title" android:key="revanced_alt_thumbnail_subscriptions" android:entryValues="@array/revanced_alt_thumbnail_options_entry_values" />
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_alt_thumbnail_options_entries" android:title="@string/revanced_alt_thumbnail_library_title" android:key="revanced_alt_thumbnail_library" android:entryValues="@array/revanced_alt_thumbnail_options_entry_values" />
-        <app.morphe.extension.youtube.settings.preference.DeArrowAboutPreference android:title="@string/morphe_dearrow_screen_title" android:selectable="true" android:summary="@string/morphe_dearrow_about_summary" />
+        <app.morphe.extension.youtube.settings.preference.DeArrowAccountPreferenceCategory android:key="morphe_dearrow_submitting_category" android:title="@string/morphe_dearrow_submitting_title" android:orderingFromXml="true" android:layout="@layout/revanced_settings_preferences_category">
+            <app.morphe.extension.youtube.settings.preference.DeArrowGuidelinesPreference android:title="@string/morphe_dearrow_guidelines_title" android:summary="@string/morphe_dearrow_guidelines_summary" android:selectable="true" />
+            <app.morphe.extension.youtube.settings.preference.DeArrowTimeStepPreference android:key="morphe_dearrow_vote_time_step" android:title="@string/morphe_dearrow_vote_time_step_title" android:summary="@string/morphe_dearrow_vote_time_step_summary" android:defaultValue="100" android:inputType="number" android:dependency="morphe_dearrow_vote_button" />
+            <app.morphe.extension.youtube.settings.preference.DeArrowPrivateUserIdPreference android:key="sb_private_user_id_Do_Not_Share" android:title="@string/morphe_dearrow_private_user_id_title" android:summary="@string/morphe_dearrow_private_user_id_summary" android:inputType="text" />
+        </app.morphe.extension.youtube.settings.preference.DeArrowAccountPreferenceCategory>
+        <app.morphe.extension.youtube.settings.preference.DeArrowAboutPreference android:title="@string/morphe_dearrow_vote_title" android:selectable="true" android:summary="@string/morphe_dearrow_about_summary" />
         <SwitchPreference android:title="@string/revanced_sb_toast_on_connection_error" android:key="revanced_alt_thumbnail_dearrow_connection_toast" android:summaryOn="@string/revanced_alt_thumbnail_dearrow_connection_toast_summary_on" android:summaryOff="@string/revanced_alt_thumbnail_dearrow_connection_toast_summary_off" />
         <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:title="@string/revanced_alt_thumbnail_dearrow_api_url_title" android:key="revanced_alt_thumbnail_dearrow_api_url" android:summary="@string/revanced_alt_thumbnail_dearrow_api_url_summary" android:inputType="text" />
         <Preference android:title="@string/revanced_alt_thumbnail_stills" android:selectable="false" android:summary="@string/revanced_alt_thumbnail_stills_about_summary" />
@@ -381,6 +403,17 @@
             <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:title="@string/revanced_hide_feed_flyout_menu_filter_strings_title" android:key="revanced_hide_feed_flyout_menu_filter_strings" android:summary="@string/revanced_hide_feed_flyout_menu_filter_strings_summary" android:inputType="textMultiLine" />
         </PreferenceScreen>SETTINGS: HIDE_FEED_FLYOUT_MENU -->
 
+        <!-- SETTINGS: HIDE_LAYOUT_COMPONENTS
+        <PreferenceScreen android:key="morphe_post_buttons_screen" android:title="@string/morphe_post_buttons_screen_title" android:summary="@string/morphe_post_buttons_screen_summary">
+            <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:key="morphe_post_buttons_layout" android:title="@string/morphe_post_buttons_layout_title" android:entries="@array/morphe_post_buttons_layout_entries" android:entryValues="@array/morphe_post_buttons_layout_entry_values" />
+            <SwitchPreference android:title="@string/morphe_post_image_download_title" android:key="morphe_post_image_download" android:summary="@string/morphe_post_image_download_summary" />
+            <SwitchPreference android:key="morphe_hide_post_like_dislike_buttons" android:title="@string/morphe_hide_post_like_dislike_buttons_title" />
+            <SwitchPreference android:key="morphe_hide_post_dislike_button" android:title="@string/morphe_hide_post_dislike_button_title" android:summary="@string/morphe_hide_post_dislike_button_summary" />
+            <SwitchPreference android:key="morphe_hide_post_comment_button" android:title="@string/morphe_hide_post_comment_button_title" />
+            <SwitchPreference android:key="morphe_hide_post_comments_preview" android:title="@string/morphe_hide_post_comments_preview_title" android:summary="@string/morphe_hide_post_comments_preview_summary" />
+            <SwitchPreference android:key="morphe_hide_post_share_button" android:title="@string/morphe_hide_post_share_button_title" android:summary="@string/morphe_hide_post_share_button_summary" />
+        </PreferenceScreen>SETTINGS: HIDE_LAYOUT_COMPONENTS -->
+
         <!-- SETTINGS: HIDE_FEED_COMPONENTS
         <PreferenceScreen android:title="@string/revanced_preference_screen_video_filter_title" android:key="revanced_preference_screen_video_filter" android:summary="@string/revanced_preference_screen_video_filter_summary">
             <PreferenceCategory android:title="@string/revanced_preference_category_keyword_filter" android:layout="@layout/revanced_settings_preferences_category">
@@ -406,6 +439,9 @@
 
         <!-- SETTINGS: PLAYBACK_IN_FEEDS
         <app.morphe.extension.youtube.settings.preference.PlaybackInFeedsListPreference android:title="@string/morphe_playback_in_feeds_title" android:key="morphe_playback_in_feeds" android:entries="@array/morphe_playback_in_feeds_entries" android:entryValues="@array/morphe_playback_in_feeds_entry_values" />SETTINGS: PLAYBACK_IN_FEEDS -->
+
+        <!-- SETTINGS: UNGROUP_NOTIFICATIONS
+        <SwitchPreference android:title="@string/morphe_ungroup_notifications_title" android:key="morphe_ungroup_notifications" android:summary="@string/morphe_ungroup_notifications_summary" />SETTINGS: UNGROUP_NOTIFICATIONS -->
 
         <!-- SETTINGS: DISABLE_AUTO_FEED_REFRESH
         <SwitchPreference android:title="@string/morphe_disable_auto_feed_refresh_title" android:key="morphe_disable_auto_feed_refresh" android:summary="@string/morphe_disable_auto_feed_refresh_summary" />SETTINGS: DISABLE_AUTO_FEED_REFRESH -->
@@ -454,8 +490,12 @@
         <SwitchPreference android:title="@string/morphe_feed_long_press_menu_title" android:key="morphe_feed_long_press_menu" android:summary="@string/morphe_feed_long_press_menu_summary" />
         <SwitchPreference android:title="@string/morphe_feed_watch_later_button_title" android:key="morphe_feed_watch_later_button" android:summary="@string/morphe_feed_watch_later_button_summary" />SETTINGS: FEED_VIDEO_ACTIONS -->
 
-        <!-- SETTINGS: POST_IMAGE_DOWNLOAD
-        <SwitchPreference android:title="@string/morphe_post_image_download_title" android:key="morphe_post_image_download" android:summary="@string/morphe_post_image_download_summary" />SETTINGS: POST_IMAGE_DOWNLOAD -->
+        <!-- SETTINGS: PLAYLIST_IMPROVEMENTS
+        <SwitchPreference android:key="morphe_playlist_wide_drag_handles" android:title="@string/morphe_playlist_wide_drag_handles_title" android:summary="@string/morphe_playlist_wide_drag_handles_summary" />
+        <SwitchPreference android:key="morphe_playlist_hide_removal_snackbar" android:title="@string/morphe_playlist_hide_removal_snackbar_title" android:summary="@string/morphe_playlist_hide_removal_snackbar_summary" />SETTINGS: PLAYLIST_IMPROVEMENTS -->
+
+        <!-- SETTINGS: PLAYLIST_LONG_PRESS_DRAG
+        <SwitchPreference android:key="morphe_playlist_long_press_drag" android:title="@string/morphe_playlist_long_press_drag_title" android:summary="@string/morphe_playlist_long_press_drag_summary" />SETTINGS: PLAYLIST_LONG_PRESS_DRAG -->
 
     <!-- PREFERENCE_SCREEN: FEED
     </PreferenceScreen>PREFERENCE_SCREEN: FEED -->
@@ -525,8 +565,8 @@
 
         <!-- SETTINGS: HIDE_ACTION_BUTTONS
         <PreferenceScreen android:title="@string/revanced_preference_category_action_buttons" android:key="revanced_preference_screen_action_buttons" android:summary="@string/revanced_preference_screen_action_buttons_summary">SETTINGS: HIDE_ACTION_BUTTONS -->
-            <!-- SETTINGS: RESTORE_OLD_VIDEO_ACTION_BAR
-            <SwitchPreference android:title="@string/revanced_restore_old_video_action_bar_title" android:key="revanced_restore_old_video_action_bar" android:summary="@string/revanced_restore_old_video_action_bar_summary" />SETTINGS: RESTORE_OLD_VIDEO_ACTION_BAR -->
+            <!-- SETTINGS: VIDEO_ACTION_BAR_LAYOUT
+            <ListPreference android:title="@string/morphe_video_action_bar_layout_title" android:key="morphe_video_action_bar_layout" android:entries="@array/morphe_video_action_bar_layout_entries" android:entryValues="@array/morphe_video_action_bar_layout_entry_values" />SETTINGS: VIDEO_ACTION_BAR_LAYOUT -->
 
             <!-- SETTINGS: HIDE_ACTION_BUTTONS
             <SwitchPreference android:title="@string/revanced_hide_action_bar_title" android:key="revanced_hide_action_bar" android:summaryOn="@string/revanced_hide_action_bar_summary_on" android:summaryOff="@string/revanced_hide_action_bar_summary_off" />
@@ -557,6 +597,13 @@
 
         <!-- SETTINGS: AMBIENT_MODE_CONTROLS
         <PreferenceScreen android:title="@string/revanced_preference_screen_ambient_mode_title" android:key="revanced_preference_screen_ambient_mode" android:summary="@string/revanced_preference_screen_ambient_mode_summary">
+            <SwitchPreference android:title="@string/morphe_enhanced_ambient_mode_title" android:key="morphe_enhanced_ambient_mode" android:summary="@string/morphe_enhanced_ambient_mode_summary" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:title="@string/morphe_enhanced_ambient_mode_strength_title" android:summary="@string/morphe_enhanced_ambient_mode_strength_summary" android:key="morphe_enhanced_ambient_mode_strength" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:title="@string/morphe_enhanced_ambient_mode_smoothing_title" android:summary="@string/morphe_enhanced_ambient_mode_smoothing_summary" android:key="morphe_enhanced_ambient_mode_smoothing" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:title="@string/morphe_enhanced_ambient_mode_blur_title" android:summary="@string/morphe_enhanced_ambient_mode_blur_summary" android:key="morphe_enhanced_ambient_mode_blur" />
+            <SwitchPreference android:title="@string/morphe_enhanced_ambient_mode_readable_text_title" android:key="morphe_enhanced_ambient_mode_readable_text" android:summary="@string/morphe_enhanced_ambient_mode_readable_text_summary" />
+            <SwitchPreference android:title="@string/morphe_enhanced_ambient_mode_dim_while_scrolling_title" android:key="morphe_enhanced_ambient_mode_dim_while_scrolling" android:summary="@string/morphe_enhanced_ambient_mode_dim_while_scrolling_summary" />
+            <app.morphe.extension.shared.settings.preference.SeekBarPreference android:key="morphe_enhanced_ambient_mode_dim_duration" android:title="@string/morphe_enhanced_ambient_mode_dim_duration_title" android:summary="@string/morphe_enhanced_ambient_mode_dim_duration_summary" />
             <SwitchPreference android:title="@string/revanced_bypass_ambient_mode_restrictions_title" android:key="revanced_bypass_ambient_mode_restrictions" android:summaryOn="@string/revanced_bypass_ambient_mode_restrictions_summary_on" android:summaryOff="@string/revanced_bypass_ambient_mode_restrictions_summary_off" />
             <SwitchPreference android:title="@string/revanced_disable_ambient_mode_title" android:key="revanced_disable_ambient_mode" android:summaryOn="@string/revanced_disable_ambient_mode_summary_on" android:summaryOff="@string/revanced_disable_ambient_mode_summary_off" />
             <SwitchPreference android:title="@string/revanced_disable_ambient_mode_in_fullscreen_title" android:key="revanced_disable_ambient_mode_in_fullscreen" android:summaryOn="@string/revanced_disable_ambient_mode_in_fullscreen_summary_on" android:summaryOff="@string/revanced_disable_ambient_mode_in_fullscreen_summary_off" />
@@ -580,6 +627,7 @@
         <PreferenceScreen android:title="@string/revanced_preference_screen_comments_title" android:key="revanced_preference_screen_comments" android:summary="@string/revanced_preference_screen_comments_summary">
             <SwitchPreference android:title="@string/revanced_hide_comments_carousel_title" android:key="revanced_hide_comments_carousel" />
             <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:title="@string/revanced_hide_comments_carousel_filter_strings_title" android:key="revanced_hide_comments_carousel_filter_strings" android:summary="@string/revanced_hide_comments_carousel_filter_strings_summary" android:inputType="textMultiLine" />
+            <app.morphe.extension.shared.settings.preference.HtmlSwitchPreference android:title="@string/revanced_hide_comments_carousel_filter_type_title" android:key="revanced_hide_comments_carousel_filter_type" android:summaryOn="@string/revanced_hide_comments_carousel_filter_type_summary_on" android:summaryOff="@string/revanced_hide_comments_carousel_filter_type_summary_off" />
             <SwitchPreference android:title="@string/revanced_enable_comments_scroll_top_title" android:key="revanced_enable_comments_scroll_top" android:summaryOn="@string/revanced_enable_comments_scroll_top_summary_on" android:summaryOff="@string/revanced_enable_comments_scroll_top_summary_off" />
             <SwitchPreference android:title="@string/revanced_hide_ai_chat_summary_title" android:key="revanced_hide_ai_chat_summary" android:summaryOn="@string/revanced_hide_ai_chat_summary_summary_on" android:summaryOff="@string/revanced_hide_ai_chat_summary_summary_off" />
             <SwitchPreference android:title="@string/revanced_hide_ai_comments_summary_title" android:key="revanced_hide_ai_comments_summary" android:summaryOn="@string/revanced_hide_ai_comments_summary_summary_on" android:summaryOff="@string/revanced_hide_ai_comments_summary_summary_off" />
@@ -753,6 +801,8 @@
             <SwitchPreference android:title="@string/revanced_miniplayer_hide_subtext_title" android:key="revanced_miniplayer_hide_subtext" android:summaryOn="@string/revanced_miniplayer_hide_subtext_summary_on" android:summaryOff="@string/revanced_miniplayer_hide_subtext_summary_off" />SETTINGS: MINIPLAYER_TYPE_MODERN -->
 
             <!-- SETTINGS: MINIPLAYER_HIDE_TITLE
+            <SwitchPreference android:key="morphe_miniplayer_glass" android:title="@string/morphe_miniplayer_glass_title" android:summary="@string/morphe_miniplayer_glass_summary" />
+            <app.morphe.extension.shared.settings.preference.SliderPreference android:inputType="number" android:key="morphe_miniplayer_glass_bottom_spacing" android:title="@string/morphe_miniplayer_glass_bottom_spacing_title" android:summary="@string/morphe_miniplayer_glass_bottom_spacing_summary" />
             <SwitchPreference android:title="@string/revanced_miniplayer_hide_title_title" android:key="revanced_miniplayer_hide_title" />SETTINGS: MINIPLAYER_HIDE_TITLE -->
 
             <!-- SETTINGS: MINIPLAYER_WIDTH_DIP
@@ -782,6 +832,9 @@
             <!-- SETTINGS: SEEKBAR_COMPONENTS
             <SwitchPreference android:title="@string/morphe_fullscreen_large_seekbar_title" android:key="morphe_fullscreen_large_seekbar" />
             <SwitchPreference android:title="@string/revanced_enable_seekbar_tapping_title" android:key="revanced_enable_seekbar_tapping" android:summaryOn="@string/revanced_enable_seekbar_tapping_summary_on" android:summaryOff="@string/revanced_enable_seekbar_tapping_summary_off" />
+            <SwitchPreference android:title="@string/morphe_custom_seekbar_thumb_title" android:key="morphe_custom_seekbar_thumb" android:summary="@string/morphe_custom_seekbar_thumb_summary" />
+            <app.morphe.extension.youtube.settings.preference.CustomSeekbarThumbPreference android:title="@string/morphe_custom_seekbar_thumb_file_title" android:key="morphe_custom_seekbar_thumb_file" android:summary="@string/morphe_custom_seekbar_thumb_file_summary" android:dependency="morphe_custom_seekbar_thumb" />
+            <ListPreference android:title="@string/morphe_custom_seekbar_thumb_scale_type_title" android:key="morphe_custom_seekbar_thumb_scale_type" android:entries="@array/morphe_custom_seekbar_thumb_scale_type_entries" android:entryValues="@array/morphe_custom_seekbar_thumb_scale_type_entry_values" android:dependency="morphe_custom_seekbar_thumb" />
             <SwitchPreference android:title="@string/morphe_seekbar_thumbnail_preview_title" android:key="morphe_seekbar_thumbnail_preview" android:summary="@string/morphe_seekbar_thumbnail_preview_summary" />
             <SwitchPreference android:title="@string/revanced_hide_seekbar_chapter_label_title" android:key="revanced_hide_seekbar_chapter_label" android:summaryOn="@string/revanced_hide_seekbar_chapter_label_summary_on" android:summaryOff="@string/revanced_hide_seekbar_chapter_label_summary_off" />
             <SwitchPreference android:title="@string/revanced_hide_time_stamp_title" android:key="revanced_hide_time_stamp" android:summaryOn="@string/revanced_hide_time_stamp_summary_on" android:summaryOff="@string/revanced_hide_time_stamp_summary_off" />
@@ -1154,7 +1207,9 @@
         <SwitchPreference android:title="@string/revanced_shorts_custom_actions_gemini_title" android:key="revanced_shorts_custom_actions_gemini" android:summaryOn="@string/revanced_shorts_custom_actions_gemini_summary_on" android:summaryOff="@string/revanced_shorts_custom_actions_gemini_summary_off" />
         <SwitchPreference android:title="@string/revanced_settings_search_gemini_title" android:key="revanced_settings_search_gemini" android:summaryOn="@string/revanced_settings_search_gemini_summary_on" android:summaryOff="@string/revanced_settings_search_gemini_summary_off" />
         <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:hint="AIzaSy..." android:title="@string/revanced_overlay_button_gemini_summarize_api_key_title" android:key="revanced_overlay_button_gemini_summarize_api_key" android:summary="@string/revanced_overlay_button_gemini_summarize_api_key_summary" android:inputType="textMultiLine" />
+        <app.morphe.extension.shared.settings.preference.ResettableEditTextPreference android:title="@string/revanced_gemini_models_title" android:key="revanced_gemini_models" android:summary="@string/revanced_gemini_models_summary" android:inputType="textMultiLine|textNoSuggestions" />
         <app.morphe.extension.shared.settings.preference.SliderPreference android:title="@string/revanced_gemini_transcribe_subtitles_font_size_title" android:key="revanced_gemini_transcribe_subtitles_font_size" android:summary="@string/revanced_gemini_transcribe_subtitles_font_size_summary" android:inputType="number" />
+        <SwitchPreference android:title="@string/revanced_gemini_google_search_title" android:key="revanced_gemini_google_search" android:summary="@string/revanced_gemini_google_search_summary" />
         <SwitchPreference android:title="@string/revanced_gemini_highlight_words_title" android:key="revanced_gemini_highlight_words" android:summary="@string/revanced_gemini_highlight_words_summary" />
         <SwitchPreference android:title="@string/revanced_yandex_transcribe_subtitles_title" android:key="revanced_yandex_transcribe_subtitles" android:summary="@string/revanced_yandex_transcribe_subtitles_summary" />
         <app.morphe.extension.shared.settings.preference.CustomDialogListPreference android:entries="@array/revanced_yandex_transcribe_subtitles_language_entries" android:entryValues="@array/revanced_yandex_transcribe_subtitles_language_entry_values" android:title="@string/revanced_yandex_transcribe_subtitles_language_title" android:key="revanced_yandex_transcribe_subtitles_language" android:summary="@string/revanced_yandex_transcribe_subtitles_language_summary" />
@@ -1212,6 +1267,7 @@
             <SwitchPreference android:title="@string/morphe_spoof_video_streams_stats_for_nerds_title" android:key="morphe_spoof_video_streams_stats_for_nerds" android:summaryOn="@string/morphe_spoof_video_streams_stats_for_nerds_summary_on" android:summaryOff="@string/morphe_spoof_video_streams_stats_for_nerds_summary_off" />
 
             <PreferenceCategory android:title="@string/revanced_preference_category_android_vr" android:layout="@layout/revanced_settings_preferences_category" />
+            <app.morphe.extension.youtube.settings.preference.SpoofVideoStreamsMwebSignInPreference android:title="@string/morphe_spoof_video_streams_sign_in_mweb_about_title" android:summary="@string/morphe_spoof_video_streams_sign_in_mweb_about_summary" />
             <app.morphe.extension.youtube.settings.preference.SpoofVideoStreamsSignInPreference android:title="@string/morphe_spoof_video_streams_sign_in_android_vr_about_title" android:summary="@string/morphe_spoof_video_streams_sign_in_android_vr_about_summary" />
             <SwitchPreference android:title="@string/morphe_spoof_video_streams_av1_title" android:key="morphe_spoof_video_streams_av1" android:summaryOn="@string/morphe_spoof_video_streams_av1_summary_on" android:summaryOff="@string/morphe_spoof_video_streams_av1_summary_off" />
 
@@ -1235,6 +1291,9 @@
             <!-- SETTINGS: DEBUGGING
             <Preference android:title="@string/revanced_debug_logs_clear_buffer_title" android:key="revanced_debug_logs_clear_buffer" android:summary="@string/revanced_debug_logs_clear_buffer_summary" />
             <app.morphe.extension.youtube.settings.preference.WebViewPreference android:title="@string/revanced_webview_title" android:key="revanced_webview" android:summary="@string/revanced_webview_summary" />
+
+            <SwitchPreference android:title="@string/morphe_debug_save_push_notifications_title" android:key="morphe_debug_save_push_notifications" android:defaultValue="false" android:summary="@string/morphe_debug_save_push_notifications_summary" />
+            <app.morphe.extension.youtube.settings.preference.SavedPushNotificationsPreference android:title="@string/morphe_debug_saved_push_notifications_title" android:key="morphe_debug_saved_push_notifications" android:summary="@string/morphe_debug_saved_push_notifications_summary" />
         </PreferenceScreen>SETTINGS: DEBUGGING -->
 
         <PreferenceScreen android:title="@string/revanced_preference_screen_import_export_title" android:key="revanced_preference_screen_import_export" android:summary="@string/revanced_preference_screen_import_export_summary">
@@ -1318,7 +1377,7 @@
                 <Preference android:title="Hide ads" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
             </PreferenceCategory>
 
-            <PreferenceCategory android:title="@string/morphe_dearrow_screen_title" android:layout="@layout/revanced_settings_preferences_category">
+            <PreferenceCategory android:title="@string/morphe_dearrow_vote_title" android:layout="@layout/revanced_settings_preferences_category">
                 <Preference android:title="DeArrow" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
                 <Preference android:title="Bypass image region restrictions" android:summary="@string/revanced_patches_excluded" android:selectable="false"/>
             </PreferenceCategory>

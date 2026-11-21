@@ -40,14 +40,6 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
-/*
- * Portions of this file are ported from Morphe:
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-patches
- *
- * See the included NOTICE file for GPLv3 §7(b) and §7(c) terms that apply to Morphe contributions.
- */
-
 package app.morphe.patches.youtube.general.downloads
 
 import app.morphe.patcher.Fingerprint
@@ -71,6 +63,7 @@ import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMuta
 import app.morphe.patcher.util.smali.ExternalLabel
 import app.morphe.patches.shared.misc.fix.proto.fixProtoLibraryPatch
 import app.morphe.patches.shared.misc.fix.proto.parseByteArrayMethodRef
+import app.morphe.patches.youtube.general.downloads.native.nativeDownloadsPatch
 import app.morphe.patches.youtube.utils.compatibility.Constants.COMPATIBILITY_YOUTUBE
 import app.morphe.patches.youtube.utils.bottomsheet.bottomSheetFlyoutMenuPatch
 import app.morphe.patches.youtube.utils.extension.Constants.GENERAL_PATH
@@ -146,18 +139,25 @@ val downloadActionsPatch = bytecodePatch(
     compatibleWith(COMPATIBILITY_YOUTUBE)
 
     dependsOn(
+        nativeDownloadsPatch,
         lithoFilterPatch,
         sharedResourceIdPatch,
         versionCheckPatch,
         // Keep the bottom sheet 3-dots menu that the custom flyout items
         // (Save to Watch later, download) are added to.
         bottomSheetFlyoutMenuPatch,
-        // Downloads button in the You tab.
+        // Downloads button in the "You" tab.
         fixProtoLibraryPatch,
         toolBarHookPatch,
     )
 
     execute {
+        app.morphe.patcher.Fingerprint(
+            definingClass = "Lapp/morphe/extension/youtube/videoplayer/ShortsDownloadButton;",
+            name = "isPatchIncluded",
+            returnType = "Z"
+        ).method.addInstructions(0, "const/4 v0, 0x1\nreturn v0")
+
         // Track the top-level player menu even when Hide player flyout menu is excluded.
         addLithoFilter("Lapp/morphe/extension/youtube/patches/components/PlayerFlyoutMenuFilter;")
 

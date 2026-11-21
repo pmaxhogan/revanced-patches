@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-11-03T18:04:11",
-  "description": "# [4.4.0-dev.5](https://github.com/anddea/revanced-patches/compare/v4.4.0-dev.4...v4.4.0-dev.5) (2026-11-03)\n\n\n### Features\n\n* **YouTube - Copy text:** Add option to select text of descriptions and posts ([9ecb6b9](https://github.com/anddea/revanced-patches/commit/9ecb6b970b71d14b2f9e4737d7a7d8ce091fc602))\n* **YouTube - Navigation bar components:** Add `Watch later` option for `Navigation bar items` setting ([b1151a0](https://github.com/anddea/revanced-patches/commit/b1151a0616f669d294df5cc2bbfc3daf73653a09))\n* **YouTube:** Add `Translate live chat` patch ([fd06c13](https://github.com/anddea/revanced-patches/commit/fd06c13ee62d58d95d552b569e85dd7bce5da232))\n* **YouTube:** Add `Unlock queue` patch ([6fb6e5c](https://github.com/anddea/revanced-patches/commit/6fb6e5ceaea2f0287d48e6819151c2b7dc33d8cb))",
-  "download_url": "https://github.com/anddea/revanced-patches/releases/download/v4.4.0-dev.5/patches-4.4.0-dev.5.mpp",
-  "signature_download_url": "https://github.com/anddea/revanced-patches/releases/download/v4.4.0-dev.5/patches-4.4.0-dev.5.mpp.asc",
-  "version": "4.4.0-dev.5"
+  "created_at": "2026-11-20T16:51:15",
+  "description": "# [4.4.0-dev.8](https://github.com/anddea/revanced-patches/compare/v4.4.0-dev.7...v4.4.0-dev.8) (2026-11-20)\n\n\n### Features\n\n* **YouTube - Navigation bar components:** Add `Swipe to switch navigation tabs` setting ([8a8fd7e](https://github.com/anddea/revanced-patches/commit/8a8fd7ef57b07582f2dba6310a8a466119f368c9))\n* **YouTube & YouTube Music - Miniplayer:** Add `Glass miniplayer` setting ([3490171](https://github.com/anddea/revanced-patches/commit/34901711e6cfd5ce99441c0be4f555fa75b8785c))\n* **YouTube:** Add `Ungroup notifications` patch ([39fdaf8](https://github.com/anddea/revanced-patches/commit/39fdaf8365021c20b36df0564f95a63a3a34b071))",
+  "download_url": "https://github.com/anddea/revanced-patches/releases/download/v4.4.0-dev.8/patches-4.4.0-dev.8.mpp",
+  "signature_download_url": "https://github.com/anddea/revanced-patches/releases/download/v4.4.0-dev.8/patches-4.4.0-dev.8.mpp.asc",
+  "version": "4.4.0-dev.8"
 }

@@ -11,7 +11,7 @@ internal enum class PatchList(
     ),
     AMBIENT_MODE_CONTROL(
         "Ambient mode control",
-        "Forces Ambient mode on and adds options to bypass power saving restrictions for Ambient mode and disable it entirely or in fullscreen."
+        "Adds Enhanced Ambient mode and options to force Ambient mode on, bypass its power saving restrictions, and disable it entirely or in fullscreen."
     ),
     BYPASS_IMAGE_REGION_RESTRICTIONS(
         "Bypass image region restrictions",
@@ -274,6 +274,11 @@ internal enum class PatchList(
         "Sanitize sharing links",
         "Adds an option to sanitize sharing links by removing tracking query parameters."
     ),
+    PLAYLIST_IMPROVEMENTS(
+        "Playlist improvements",
+        "Adds options to widen playlist drag handles, reorder videos by long press, " +
+                "and hide removal confirmations."
+    ),
     SAVE_TO_WATCH_LATER(
         "Save to Watch later",
         "Adds options to save videos to Watch later from the video player or feed flyout menu."
@@ -341,6 +346,10 @@ internal enum class PatchList(
     TRANSLATIONS_FOR_YOUTUBE(
         "Translations for YouTube",
         "Add translations or remove string resources."
+    ),
+    UNGROUP_NOTIFICATIONS(
+        "Ungroup notifications",
+        "Adds an option to show every video of the notifications that YouTube groups by channel as its own notification."
     ),
     UNLOCK_QUEUE(
         "Unlock queue",

@@ -7,6 +7,7 @@
 
 package app.morphe.extension.music.patches.actionbar;
 
+import app.morphe.extension.music.patches.DownloadsPatch;
 import app.morphe.extension.music.patches.flyout.FlyoutPatch;
 
 import static app.morphe.extension.shared.utils.Utils.hideViewBy0dpUnderCondition;
@@ -103,7 +104,7 @@ public class ActionBarPatch {
     }
 
     public static void inAppDownloadButtonOnClick(View view) {
-        if (EXTERNAL_DOWNLOADER_ACTION_BUTTON &&
+        if (!DownloadsPatch.isEnabled() && (EXTERNAL_DOWNLOADER_ACTION_BUTTON || Settings.IN_APP_DOWNLOADS.get()) &&
                 buttonType.equals(ActionButton.DOWNLOAD.name)) {
             view.setOnClickListener(imageView -> VideoUtils.launchExternalDownloader());
         }
@@ -137,12 +138,12 @@ public class ActionBarPatch {
         try {
             if (FlyoutPatch.isViewInsideDialog(map == null ? null : map.get(ELEMENTS_SENDER_VIEW))
                     || !isPlayerDownloadButton(map)) return false;
-            if (!EXTERNAL_DOWNLOADER_ACTION_BUTTON) {
+            if (!(EXTERNAL_DOWNLOADER_ACTION_BUTTON || Settings.IN_APP_DOWNLOADS.get())) {
                 FlyoutPatch.onStockPlayerDownload();
                 return false;
             }
             String videoId = VideoInformation.getVideoId();
-            if (videoId == null || videoId.isEmpty()) return false;
+            if (videoId.isEmpty()) return false;
             return playerDownloadOnClick(videoId);
         } catch (Exception ex) {
             Logger.printException(() -> "inAppDownloadButtonOnClick failed", ex);
@@ -159,15 +160,13 @@ public class ActionBarPatch {
 
     private static boolean playerDownloadOnClick(String videoId) {
         try {
-            if (!EXTERNAL_DOWNLOADER_ACTION_BUTTON) {
+            if (!(EXTERNAL_DOWNLOADER_ACTION_BUTTON || Settings.IN_APP_DOWNLOADS.get())) {
                 return false;
             }
-            Utils.verifyOnMainThread();
-
             long now = System.currentTimeMillis();
             if (now - lastMainPlayerDownloadTime < IGNORE_DOUBLE_CLICK_DURATION_MS) return true;
             lastMainPlayerDownloadTime = now;
-            VideoUtils.launchExternalDownloader(videoId);
+            Utils.runOnMainThreadNowOrLater(() -> VideoUtils.launchExternalDownloader(videoId));
             return true;
         } catch (Exception ex) {
             Logger.printException(() -> "offlineVideoEndpointOnClick failure", ex);
@@ -177,7 +176,7 @@ public class ActionBarPatch {
 
     public static CharSequence onLithoTextLoaded(@NonNull Object conversionContext,
                                                  @NonNull CharSequence original) {
-        if (EXTERNAL_DOWNLOADER_ACTION_BUTTON &&
+        if ((EXTERNAL_DOWNLOADER_ACTION_BUTTON || Settings.IN_APP_DOWNLOADS.get()) &&
                 downloadButtonLabel.isEmpty() &&
                 conversionContext.toString().contains("music_download_button.")) {
             downloadButtonLabel = original.toString();

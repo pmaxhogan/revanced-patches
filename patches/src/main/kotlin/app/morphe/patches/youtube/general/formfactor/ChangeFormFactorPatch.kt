@@ -29,8 +29,7 @@ import app.morphe.patches.youtube.utils.navigation.navigationBarHookPatch
 import app.morphe.patches.youtube.utils.patch.PatchList.CHANGE_FORM_FACTOR
 import app.morphe.patches.youtube.utils.playertype.playerTypeHookPatch
 import app.morphe.patches.youtube.utils.playservice.is_20_00_or_greater
-import app.morphe.patches.youtube.utils.playservice.is_20_22_or_greater
-import app.morphe.patches.youtube.utils.playservice.is_20_31_or_greater
+import app.morphe.patches.youtube.utils.playservice.is_21_30_or_greater
 import app.morphe.patches.youtube.utils.playservice.versionCheckPatch
 import app.morphe.patches.youtube.utils.settings.ResourceUtils.addPreference
 import app.morphe.patches.youtube.utils.settings.settingsPatch
@@ -118,17 +117,27 @@ val changeFormFactorPatch = bytecodePatch(
             }
         }
 
+        // Responsive container size classes were introduced in 21.30.
+        if (is_21_30_or_greater) {
+            getResponsiveContainerPropertiesFingerprint().method.addInstructions(
+                0,
+                """
+                    invoke-static/range { p1 .. p1 }, $EXTENSION_CLASS_DESCRIPTOR->getResponsiveContainerWidth(I)I
+                    move-result p1
+                """
+            )
+        }
+
         // region add settings
 
-        val preferences = mutableListOf(
-            "PREFERENCE_SCREEN: GENERAL",
-            "PREFERENCE_CATEGORY: GENERAL_EXPERIMENTAL_FLAGS",
-            "SETTINGS: CHANGE_FORM_FACTOR",
+        addPreference(
+            arrayOf(
+                "PREFERENCE_SCREEN: GENERAL",
+                "PREFERENCE_CATEGORY: GENERAL_EXPERIMENTAL_FLAGS",
+                "SETTINGS: CHANGE_FORM_FACTOR",
+            ),
+            CHANGE_FORM_FACTOR
         )
-        if (!is_20_22_or_greater || is_20_31_or_greater) {
-            preferences += "SETTINGS: TABLET_LAYOUT_IN_PLAYER"
-        }
-        addPreference(preferences.toTypedArray(), CHANGE_FORM_FACTOR)
 
         // endregion
 

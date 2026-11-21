@@ -25,8 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import app.morphe.extension.music.patches.lyrics.requests.CharactersConverter;
 import app.morphe.extension.music.patches.lyrics.requests.LyricsRequests;
+import app.morphe.extension.music.patches.lyrics.requests.CharactersConverter;
 import app.morphe.extension.shared.utils.Logger;
 
 /**
@@ -118,7 +118,7 @@ public final class MetadataCleaner {
         return cleanField(title == null ? null : stripFeatureCreditSuffix(title));
     }
 
-    static String cleanArtist(@Nullable String artist) {
+    public static String cleanArtist(@Nullable String artist) {
         if (artist == null) {
             return "";
         }

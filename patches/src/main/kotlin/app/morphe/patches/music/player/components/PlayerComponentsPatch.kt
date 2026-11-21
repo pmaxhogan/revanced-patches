@@ -40,16 +40,10 @@
  *    user interface (e.g., in an "About" or "Credits" section).
  */
 
-/*
- * Portions of this file are ported from Morphe:
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-patches
- *
- * See the included NOTICE file for GPLv3 §7(b) and §7(c) terms that apply to this code.
- */
-
 package app.morphe.patches.music.player.components
 
+import app.morphe.patches.music.video.information.videoInformationPatch
+import app.morphe.patches.music.video.information.videoIdHook
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.InstructionLocation.MatchAfterWithin
 import app.morphe.patcher.fieldAccess
@@ -90,6 +84,7 @@ import app.morphe.patches.music.utils.playservice.is_8_12_or_greater
 import app.morphe.patches.music.utils.playservice.is_8_51_or_greater
 import app.morphe.patches.music.utils.playservice.is_9_00_or_greater
 import app.morphe.patches.music.utils.playservice.is_9_15_or_greater
+import app.morphe.patches.music.utils.playservice.is_9_39_or_greater
 import app.morphe.patches.music.utils.playservice.versionCheckPatch
 import app.morphe.patches.music.utils.resourceid.colorGrey
 import app.morphe.patches.music.utils.resourceid.darkBackground
@@ -155,6 +150,9 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import org.w3c.dom.Element
 
+private const val MINIPLAYER_COLOR_INTERFACE =
+    "Lapp/morphe/extension/music/patches/ChangeMiniplayerColorPatch\$MiniplayerAccess;"
+
 private const val IMAGE_VIEW_TAG_NAME =
     "com.google.android.libraries.youtube.common.ui.TouchImageView"
 private const val NEXT_BUTTON_VIEW_ID =
@@ -213,33 +211,19 @@ private val playerComponentsResourcePatch = resourcePatch(
     dependsOn(versionCheckPatch)
 
     execute {
-        val publicFile = get("res/values/public.xml")
-
-        // Since YT Music v6.42.51,the resources for the next button have been removed, we need to add them manually.
+        // Since YT Music v6.42.51, the resources for the next button have been removed.
+        // Older bytecode looks up TOP_START / TOP_END. Use those IDs on the added views
+        // without renaming public resources, which also supply attrs.xml enum symbols.
+        // Newer clients keep the extension's dynamically resolved button IDs.
         if (is_6_42_or_greater) {
-            publicFile.writeText(
-                publicFile.readText()
-                    .replace(
-                        "\"TOP_START\"",
-                        "\"$NEXT_BUTTON_VIEW_ID\""
-                    )
-            )
             insertNode(false)
         }
-        publicFile.writeText(
-            publicFile.readText()
-                .replace(
-                    "\"TOP_END\"",
-                    "\"$PREVIOUS_BUTTON_VIEW_ID\""
-                )
-        )
         insertNode(true)
     }
 }
 
 // 9.40: music_player_next/prev drawables no longer exist; pick an existing drawable.
 private fun ResourcePatchContext.insertNode(isPreviousButton: Boolean) {
-    var shouldAddPreviousButton = true
     val drawableName = if (isPreviousButton) {
         if (get("res/drawable/music_player_prev.xml").exists()) "music_player_prev"
         else "quantum_ic_skip_previous_white_36"
@@ -248,24 +232,35 @@ private fun ResourcePatchContext.insertNode(isPreviousButton: Boolean) {
         else "quantum_ic_skip_next_white_36"
     }
 
-    document("res/layout/watch_while_layout.xml").use { document ->
-        document.doRecursively loop@{ node ->
-            if (node !is Element) return@loop
+    val playerLayouts = mutableListOf("res/layout/watch_while_layout.xml")
+    if (is_9_39_or_greater) {
+        // Inflated instead of the layout above when a server flag defers the player.
+        playerLayouts += "res/layout/watch_while_layout_player.xml"
+    }
 
-            node.getAttributeNode("android:id")?.let { attribute ->
-                if (isPreviousButton) {
-                    if (attribute.textContent == "@id/mini_player_play_pause_replay_button" &&
-                        shouldAddPreviousButton
-                    ) {
-                        node.insertNode(IMAGE_VIEW_TAG_NAME, node) {
-                            setPreviousButtonNodeAttribute(drawableName)
+    playerLayouts.forEach { playerLayout ->
+        // Inject previous button before play/pause, next button as last child of mini_player.
+        var shouldAddPreviousButton = true
+
+        document(playerLayout).use { document ->
+            document.doRecursively loop@{ node ->
+                if (node !is Element) return@loop
+
+                node.getAttributeNode("android:id")?.let { attribute ->
+                    if (isPreviousButton) {
+                        if (attribute.textContent == "@id/mini_player_play_pause_replay_button" &&
+                            shouldAddPreviousButton
+                        ) {
+                            node.insertNode(IMAGE_VIEW_TAG_NAME, node) {
+                                setPreviousButtonNodeAttribute(drawableName)
+                            }
+                            shouldAddPreviousButton = false
                         }
-                        shouldAddPreviousButton = false
-                    }
-                } else {
-                    if (attribute.textContent == "@id/mini_player") {
-                        node.adoptChild(IMAGE_VIEW_TAG_NAME) {
-                            setNextButtonNodeAttribute(drawableName)
+                    } else {
+                        if (attribute.textContent == "@id/mini_player") {
+                            node.adoptChild(IMAGE_VIEW_TAG_NAME) {
+                                setNextButtonNodeAttribute(drawableName)
+                            }
                         }
                     }
                 }
@@ -276,7 +271,7 @@ private fun ResourcePatchContext.insertNode(isPreviousButton: Boolean) {
 
 private fun Element.setNextButtonNodeAttribute(drawableName: String) {
     mapOf(
-        "android:id" to "@id/$NEXT_BUTTON_VIEW_ID",
+        "android:id" to if (is_8_51_or_greater) "@+id/$NEXT_BUTTON_VIEW_ID" else "@id/TOP_START",
         "android:padding" to "@dimen/item_medium_spacing",
         "android:layout_width" to "@dimen/remix_generic_button_size",
         "android:layout_height" to "@dimen/remix_generic_button_size",
@@ -292,7 +287,7 @@ private fun Element.setNextButtonNodeAttribute(drawableName: String) {
 
 private fun Element.setPreviousButtonNodeAttribute(drawableName: String) {
     mapOf(
-        "android:id" to "@id/$PREVIOUS_BUTTON_VIEW_ID",
+        "android:id" to if (is_8_51_or_greater) "@+id/$PREVIOUS_BUTTON_VIEW_ID" else "@id/TOP_END",
         "android:padding" to "@dimen/item_medium_spacing",
         "android:layout_width" to "@dimen/remix_generic_button_size",
         "android:layout_height" to "@dimen/remix_generic_button_size",
@@ -305,6 +300,8 @@ private fun Element.setPreviousButtonNodeAttribute(drawableName: String) {
         setAttribute(k, v)
     }
 }
+
+private const val COLOR_CLASS_DESCRIPTOR = "Lapp/morphe/extension/music/patches/ChangeMiniplayerColorPatch;"
 
 private const val FILTER_CLASS_DESCRIPTOR =
     "$COMPONENTS_PATH/PlayerComponentsFilter;"
@@ -327,6 +324,7 @@ val playerComponentsPatch = bytecodePatch(
         mainActivityResolvePatch,
         videoTypeHookPatch,
         commentsPanelPatch,
+        videoInformationPatch,
     )
 
     val swipeToDismissMiniPlayer by booleanOption(
@@ -601,7 +599,8 @@ val playerComponentsPatch = bytecodePatch(
             val colorMathPlayerIPutReference = with(miniPlayerConstructorFingerprint.methodOrThrow()) {
                 val colorGreyIndex = indexOfFirstLiteralInstructionOrThrow(colorGrey)
                 val iPutIndex = indexOfFirstInstructionOrThrow(colorGreyIndex, Opcode.IPUT)
-                getInstruction<ReferenceInstruction>(iPutIndex).reference
+                addInstruction(iPutIndex, "invoke-static {v${getInstruction<TwoRegisterInstruction>(iPutIndex).registerB}, v${getInstruction<TwoRegisterInstruction>(iPutIndex).registerA}}, $COLOR_CLASS_DESCRIPTOR->setDefaultMiniplayerColor(${MINIPLAYER_COLOR_INTERFACE}I)V")
+                getInstruction<ReferenceInstruction>(iPutIndex + 1).reference
             }
 
             miniPlayerConstructorFingerprint.mutableClassOrThrow().methods.filter {
@@ -618,7 +617,7 @@ val playerComponentsPatch = bytecodePatch(
 
                     addInstructionsWithLabels(
                         invokeDirectIndex + 1, """
-                            invoke-static {}, $PLAYER_CLASS_DESCRIPTOR->changeMiniPlayerColor()Z
+                            invoke-static {}, $COLOR_CLASS_DESCRIPTOR->changeMiniplayerColor()Z
                             move-result v$freeRegister
                             if-eqz v$freeRegister, :theme_color
                             if-eqz p1, :off
@@ -626,7 +625,8 @@ val playerComponentsPatch = bytecodePatch(
                             move-result-object v$freeRegister
                             check-cast v$freeRegister, ${(colorMathPlayerIGetReference as FieldReference).definingClass}
                             iget v$freeRegister, v$freeRegister, $colorMathPlayerIGetReference
-                            invoke-static {v$freeRegister}, $PLAYER_CLASS_DESCRIPTOR->setLastMiniplayerColor(I)V
+                            invoke-static {v$freeRegister}, $COLOR_CLASS_DESCRIPTOR->setLastMiniplayerColor(I)I
+                            move-result v$freeRegister
                             iput v$freeRegister, p0, $colorMathPlayerIPutReference
                             goto :off
                             :theme_color
@@ -667,6 +667,7 @@ val playerComponentsPatch = bytecodePatch(
                 toggleMethodParameters = legacyToggleMatch.originalMethod.parameters.map { it.type }
                 colorMathPlayerIPutReference =
                     constructor.getInstruction<ReferenceInstruction>(iPutIndex).reference
+                constructor.addInstruction(iPutIndex, "invoke-static {v${constructor.getInstruction<TwoRegisterInstruction>(iPutIndex).registerB}, v${constructor.getInstruction<TwoRegisterInstruction>(iPutIndex).registerA}}, $COLOR_CLASS_DESCRIPTOR->setDefaultMiniplayerColor(${MINIPLAYER_COLOR_INTERFACE}I)V")
                 readColorSmali = { register ->
                     """
                         invoke-virtual {p1}, $colorMathPlayerInvokeVirtualReference
@@ -688,6 +689,13 @@ val playerComponentsPatch = bytecodePatch(
                 colorMathPlayerIPutReference =
                     ModernMiniPlayerDefaultColorFieldFingerprint.instructionMatches.last()
                         .getInstruction<ReferenceInstruction>().reference
+                val defaultColorInstruction = ModernMiniPlayerDefaultColorFieldFingerprint.instructionMatches.last()
+                ModernMiniPlayerDefaultColorFieldFingerprint.method.addInstruction(
+                    ModernMiniPlayerDefaultColorFieldFingerprint.method.indexOfFirstInstructionOrThrow {
+                        opcode == Opcode.IPUT && getReference<FieldReference>() == colorMathPlayerIPutReference
+                    },
+                    "invoke-static {v${defaultColorInstruction.getInstruction<TwoRegisterInstruction>().registerB}, v${defaultColorInstruction.getInstruction<TwoRegisterInstruction>().registerA}}, $COLOR_CLASS_DESCRIPTOR->setDefaultMiniplayerColor(${MINIPLAYER_COLOR_INTERFACE}I)V"
+                )
                 readColorSmali = { register ->
                     """
                         iget-object v$register, p1, $stateFieldReference
@@ -709,12 +717,13 @@ val playerComponentsPatch = bytecodePatch(
                 addInstructionsWithLabels(
                     invokeDirectIndex + 1,
                     """
-                        invoke-static {}, $PLAYER_CLASS_DESCRIPTOR->changeMiniPlayerColor()Z
+                        invoke-static {}, $COLOR_CLASS_DESCRIPTOR->changeMiniplayerColor()Z
                         move-result v$freeRegister
                         if-eqz v$freeRegister, :theme_color
                         if-eqz p1, :off
                         ${readColorSmali(freeRegister)}
-                        invoke-static {v$freeRegister}, $PLAYER_CLASS_DESCRIPTOR->setLastMiniplayerColor(I)V
+                        invoke-static {v$freeRegister}, $COLOR_CLASS_DESCRIPTOR->setLastMiniplayerColor(I)I
+                            move-result v$freeRegister
                         iput v$freeRegister, p0, $colorMathPlayerIPutReference
                         goto :off
                         :theme_color
@@ -757,13 +766,39 @@ val playerComponentsPatch = bytecodePatch(
                 addInstructions(
                     setBackgroundColorIndex,
                     """
-                        invoke-static {v$tabLayoutRegister, v$colorRegister}, $PLAYER_CLASS_DESCRIPTOR->registerNavigationBar(Landroid/view/View;I)V
-                        invoke-static {v$colorRegister}, $PLAYER_CLASS_DESCRIPTOR->overrideNavigationBarColor(I)I
+                        invoke-static {v$tabLayoutRegister, v$colorRegister}, $COLOR_CLASS_DESCRIPTOR->registerNavigationBar(Landroid/view/View;I)V
+                        invoke-static {v$colorRegister}, $COLOR_CLASS_DESCRIPTOR->overrideNavigationBarColor(I)I
                         move-result v$colorRegister
                     """
                 )
             }
         }
+
+        // The upstream extension restores the theme color through bridges on the miniplayer.
+        // This patcher lacks addPatchInterface, so use the established ImmutableMethod bridges.
+        val miniplayerClass = if (is_8_51_or_greater) ModernMiniPlayerConstructorFingerprint.classDef
+            else miniPlayerConstructorFingerprint.mutableClassOrThrow()
+        val resetMatch = miniplayerResetColorsFingerprint(miniplayerClass.type).match()
+        val colorField = resetMatch.instructionMatches[1].fieldReference
+        miniplayerClass.apply {
+            interfaces.add(MINIPLAYER_COLOR_INTERFACE)
+            methods.add(ImmutableMethod(type, "patch_setColor",
+                listOf(ImmutableMethodParameter("I", null, null)), "V",
+                AccessFlags.PUBLIC.value or AccessFlags.FINAL.value, null, null,
+                MutableMethodImplementation(2)).toMutable().apply {
+                addInstructions(0, "iput p1, p0, $colorField\nreturn-void")
+            })
+            val resetOpcode = if (AccessFlags.PRIVATE.isSet(resetMatch.method.accessFlags)) "invoke-direct" else "invoke-virtual"
+            methods.add(ImmutableMethod(type, "patch_resetColors", emptyList(), "V",
+                AccessFlags.PUBLIC.value or AccessFlags.FINAL.value, null, null,
+                MutableMethodImplementation(1)).toMutable().apply {
+                addInstructions(0, "$resetOpcode { p0 }, ${resetMatch.method}\nreturn-void")
+            })
+        }
+        // Newer versions expose the empty-state method directly; older targets use the legacy handler.
+        val miniplayerEmptyTextMethod =
+            MiniplayerEmptyTextFingerprint.methodOrNull ?: miniPlayerDefaultTextFingerprint.methodOrThrow()
+        videoIdHook("$COLOR_CLASS_DESCRIPTOR->newVideoLoaded(Ljava/lang/String;)V")
 
         // Clear the cached tint when the queue/miniplayer is dismissed.
         val musicActivityWidgetMethod = musicActivityWidgetFingerprint.methodOrThrow()
@@ -779,7 +814,7 @@ val playerComponentsPatch = bytecodePatch(
 
         watchWhileDismissedFingerprint(musicActivityPeerClass).method.addInstructions(
             0,
-            "invoke-static {}, $PLAYER_CLASS_DESCRIPTOR->onMiniplayerDismissed()V"
+            "invoke-static {}, $COLOR_CLASS_DESCRIPTOR->onMiniplayerDismissed()V"
         )
         addSwitchPreference(
             CategoryType.PLAYER,
@@ -1770,6 +1805,13 @@ val playerComponentsPatch = bytecodePatch(
         }
 
         // endregion
+
+        // Insert last: older versions reuse this method for the cold-start swipe hook,
+        // whose fingerprint instruction offsets must still refer to the original body.
+        miniplayerEmptyTextMethod.addInstruction(
+            0,
+            "invoke-static { }, $COLOR_CLASS_DESCRIPTOR->onMiniplayerEmpty()V"
+        )
 
         updatePatchStatus(PLAYER_COMPONENTS)
 

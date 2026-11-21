@@ -79,10 +79,31 @@ public final class OpenAIClient {
             CRITICAL RULES:
             - Output exactly {count} numbered lines (same as input count)
             - Number format: "N. text" (number, period, space, text)
-            - First line of a section: its name. All other lines: "SKIP"
+            - First line of a section: its name. All other lines: literally just "SKIP" (do NOT repeat or append the lyric text)
             - Repeated sections are numbered in order: Verse 1, Verse 2, Chorus 1, Chorus 2
             - Pick the most specific name from the list above
             - Output ONLY the labels. No reasoning, no explanations.
+
+            {lines}""";
+    /**
+     * The prompt template for ruby. Each line comes back as it was, with the reading of every
+     * kanji word in brackets right after it, which {@code LyricsRubyGenerator} then reads.
+     */
+    public static final String RUBY_PROMPT = """
+            You are a professional reading engine. Add the {language} reading of every word written with kanji to each lyric line below.
+            Song: {title} by {artist}
+
+            Write the reading in square brackets right after the word, including its okurigana, like:
+            1. 深く[ふかく]沈む[しずむ]
+            2. 君[きみ]の名前[なまえ]
+
+            CRITICAL RULES:
+            - Output exactly {count} numbered lines (same as input count)
+            - Number format: "N. text" (number, period, space, text)
+            - Keep every line exactly as written, adding only the bracketed readings
+            - Do not add readings to words written only in kana or Latin letters
+            - If a line has no kanji, output one "SKIP" for it
+            - Output ONLY the lines. No reasoning, no explanations.
 
             {lines}""";
     private static final int CONNECT_TIMEOUT_MS = 10_000;
@@ -96,6 +117,10 @@ public final class OpenAIClient {
             Pattern.compile("(?:/[^/]+)*/v\\d+(?:[a-z]+)?(?:/[^/]+)*");
     private static final Pattern NUMBERED_LINE_PATTERN =
             Pattern.compile("^(?:Line\\s+)?(\\d{1,4})[.)\\]:\\-]\\s*(.*)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SKIP_TOKEN_PATTERN = Pattern.compile(
+            "^(?:\\[SKIP]|<SKIP>|\\(SKIP\\))(?:\\s.*|\\s*[:.\\-–—|].*)?$|"
+                    + "^SKIP(?:\\s*[:.\\-–—|].*)?$",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern PROMPT_VARIABLE = Pattern.compile("\\{(\\w+)\\}");
 
     private OpenAIClient() {
@@ -576,9 +601,7 @@ public final class OpenAIClient {
     public static boolean isSkipToken(@Nullable String s) {
         if (s == null) return true;
         String t = s.trim();
-        return t.isEmpty() || t.equalsIgnoreCase("SKIP") || t.equalsIgnoreCase("[SKIP]")
-                || t.equalsIgnoreCase("<SKIP>") || t.equalsIgnoreCase("(SKIP)")
-                || t.equalsIgnoreCase("SKIP.");
+        return t.isEmpty() || SKIP_TOKEN_PATTERN.matcher(t).matches();
     }
 
     @Nullable

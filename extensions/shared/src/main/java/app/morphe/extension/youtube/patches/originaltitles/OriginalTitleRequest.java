@@ -30,6 +30,7 @@ import app.morphe.extension.shared.patches.LithoRelayoutPatch;
 import app.morphe.extension.shared.utils.Logger;
 import app.morphe.extension.shared.utils.Utils;
 import app.morphe.extension.shared.requests.Requester;
+import app.morphe.extension.youtube.patches.dearrow.TitleCleanup;
 import app.morphe.extension.youtube.patches.dearrow.DeArrowBrandingRequest;
 import app.morphe.extension.youtube.patches.dearrow.DeArrowBrandingRequest.DeArrowTitle;
 import app.morphe.extension.youtube.patches.utils.requests.ChannelIdRoutes;
@@ -139,13 +140,62 @@ final class OriginalTitleRequest {
     }
 
     /**
+     * Fetches the titles of the video again, including its DeArrow branding, such as after a vote on its titles.
+     */
+    static CompletableFuture<String> fetchAgain(String videoId) {
+        synchronized (cache) {
+            DeArrowBrandingRequest.removeFromCache(videoId);
+            cache.remove(videoId);
+            retryTimes.remove(videoId);
+            failedFetchCounts.remove(videoId);
+            return fetch(videoId);
+        }
+    }
+
+    /**
+     * Does not start fetching the titles.
+     *
+     * @return The titles of the video, or null if not fetched.
+     */
+    @Nullable
+    static String getIfFetched(String videoId) {
+        CompletableFuture<String> future = cache.get(videoId);
+        if (future == null || !future.isDone() || future.isCompletedExceptionally()) {
+            return null;
+        }
+        String title = future.getNow(null);
+        OriginalVideo original = originalVideos.get(videoId);
+        return title != null ? title : original == null ? null : original.title();
+    }
+
+    /**
      * Starts fetching the title if needed, and does not wait for it.
      *
      * @return The original title, or null if not yet available.
      */
     @Nullable
-    static String getIfAvailable(String videoId) {
-        return fetch(videoId).getNow(null);
+    static String getIfAvailable(String videoId, @Nullable String shownTitle) {
+        CompletableFuture<String> future = fetch(videoId);
+        String title = future.getNow(null);
+        // This cache stores the selected replacement globally. A null completed result means
+        // DeArrow has no title; clean the shown title without changing crowdsourced titles.
+        return title == null && future.isDone() && RestoreOriginalTitlesPatch.CLEAN_UP_TITLES
+                && RestoreOriginalTitlesPatch.USE_DEARROW && shownTitle != null
+                ? cleanUpTitle(shownTitle.trim()) : title;
+    }
+
+    /** Title -> cleaned up title, bounded as in upstream. */
+    private static final Map<String, String> cleanedTitles =
+            Collections.synchronizedMap(Utils.createSizeRestrictedMap(1000));
+
+    /** @return The cleaned up title, or the same title if nothing is cleaned up. */
+    static String cleanUpTitle(String title) {
+        String cleanedTitle = cleanedTitles.get(title);
+        if (cleanedTitle == null) {
+            cleanedTitle = TitleCleanup.cleanUpTitle(title);
+            cleanedTitles.put(title, cleanedTitle);
+        }
+        return cleanedTitle;
     }
 
     /**
@@ -219,7 +269,15 @@ final class OriginalTitleRequest {
         if (!RestoreOriginalTitlesPatch.RESTORE_ORIGINAL) {
             return null;
         }
-        return originalFetched ? originalTitle : fetchOriginalTitle(videoId);
+        String title = originalFetched ? originalTitle : fetchOriginalTitle(videoId);
+        return title != null && RestoreOriginalTitlesPatch.CLEAN_UP_TITLES ? cleanUpTitle(title) : title;
+    }
+
+    /** Fetches the uploader's title independently of the selected DeArrow replacement. */
+    static CompletableFuture<String> fetchOriginalTitleIfNeeded(String videoId) {
+        OriginalVideo original = originalVideos.get(videoId);
+        return original != null ? CompletableFuture.completedFuture(original.title())
+                : CompletableFuture.supplyAsync(() -> fetchOriginalTitle(videoId), Utils::runOnBackgroundThread);
     }
 
     @Nullable

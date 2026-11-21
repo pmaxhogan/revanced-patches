@@ -73,13 +73,6 @@ public final class NavigationBar {
         onNavigationButtonChangedListeners.add(listener);
     }
 
-    /**
-     * Unregisters a listener from being notified when the navigation button changes.
-     */
-    public static void removeOnNavigationButtonChangedListener(OnNavigationButtonChangedListener listener) {
-        onNavigationButtonChangedListeners.remove(listener);
-    }
-
     private static void notifyNavigationButtonChangedListeners(@Nullable NavigationButton button) {
         for (OnNavigationButtonChangedListener listener : onNavigationButtonChangedListeners) {
             listener.onNavigationButtonChanged(button);
@@ -364,6 +357,14 @@ public final class NavigationBar {
         }
 
         enumMap.putIfAbsent(tabActivityCairo, fillBellCairoBlack);
+    }
+
+    /** Newer clients publish ordinary maps; copy before adding a missing icon. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static Map withCairoNotificationFilledIcon(Map icons, Enum tabActivityCairo) {
+        Map copy = new java.util.HashMap(icons);
+        copy.putIfAbsent(tabActivityCairo, fillBellCairoBlack);
+        return copy;
     }
 
     public enum NavigationButton {

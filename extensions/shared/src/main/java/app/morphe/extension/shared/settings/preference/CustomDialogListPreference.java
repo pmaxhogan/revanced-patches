@@ -43,6 +43,8 @@
 
 package app.morphe.extension.shared.settings.preference;
 
+import java.util.function.IntConsumer;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Build;
@@ -177,7 +179,8 @@ public class CustomDialogListPreference extends ListPreference {
             return entries;
         }
 
-        CharSequence[] marked = entries.clone();
+        // Entries can be a String[], which cannot hold the spans added here.
+        CharSequence[] marked = Arrays.copyOf(entries, entries.length, CharSequence[].class);
         for (int i = 0, length = Math.min(entries.length, entryValues.length); i < length; i++) {
             if (newEntryValues.contains(entryValues[i].toString())) {
                 marked[i] = NewIndicatorSpan.addTo(entries[i], newEntryColor);
@@ -269,7 +272,20 @@ public class CustomDialogListPreference extends ListPreference {
      */
     public static Dialog createListDialog(Context context, String title,
                                           CharSequence[] entries, CharSequence[] entryValues,
-                                          @Nullable String selectedValue, java.util.function.IntConsumer onSelected) {
+                                          @Nullable String selectedValue, IntConsumer onSelected) {
+        return createListDialog(context, title, entries, entryValues, selectedValue, onSelected,
+                null, null);
+    }
+
+    /**
+     * @param neutralText  The text of an extra button, or null for none.
+     * @param neutralClick What the extra button does.
+     */
+    public static Dialog createListDialog(Context context, String title,
+                                          CharSequence[] entries, CharSequence[] entryValues,
+                                          @Nullable String selectedValue, IntConsumer onSelected,
+                                          @Nullable CharSequence neutralText,
+                                          @Nullable Runnable neutralClick) {
         // Create ListView.
         ListView listView = new ListView(context);
         listView.setId(android.R.id.list);
@@ -306,8 +322,8 @@ public class CustomDialogListPreference extends ListPreference {
                 null,
                 null,
                 () -> {}, // Cancel button action.
-                null,
-                null,
+                neutralText == null ? null : neutralText.toString(),
+                neutralClick,
                 true
         );
 

@@ -7,6 +7,8 @@
 
 package app.morphe.extension.music.patches.lyrics;
 
+import app.morphe.extension.music.patches.lyrics.romanizers.LyricsLanguageDetector;
+
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -24,9 +26,9 @@ import app.morphe.extension.music.patches.lyrics.TrackInfo;
 import app.morphe.extension.music.patches.lyrics.Word;
 import app.morphe.extension.music.patches.lyrics.requests.LyricsRequests;
 import app.morphe.extension.music.patches.lyrics.romanizers.HangulRomanizer;
+import app.morphe.extension.music.patches.lyrics.romanizers.IcuRomanizer;
 import app.morphe.extension.music.patches.lyrics.romanizers.KanaRomanizer;
 import app.morphe.extension.music.patches.lyrics.romanizers.LocalRomanizer;
-import app.morphe.extension.music.patches.lyrics.romanizers.LyricsLanguageDetector;
 import app.morphe.extension.music.patches.lyrics.romanizers.RimeDictStore;
 import app.morphe.extension.music.patches.lyrics.romanizers.ScriptDetector;
 import app.morphe.extension.music.patches.lyrics.LyricsCache;
@@ -39,6 +41,7 @@ import app.morphe.extension.shared.translation.TextTranslator;
 public final class LyricsRomanizer {
 
     private static final String RULE_BASED_DICTIONARY = "Local (Rule-based)";
+    private static final String ICU_DICTIONARY = "ICU Transliterator";
     /** A provider reading must cover at least this share of the lyric to be usable. */
     private static final double MIN_READING_COVERAGE = 0.20;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -84,7 +87,7 @@ public final class LyricsRomanizer {
                         }
                         String part = wordReading(w, allowTransliteration);
                         part = stripParentheses(part).trim();
-                        if (!part.isEmpty() && (allowTransliteration || isPurelyLatinScript(part))) {
+                        if (!part.isEmpty() && (allowTransliteration || isReadingScript(part))) {
                             sb.append(part);
                             if (w.endsWithSpace() && !part.endsWith(" ")) {
                                 sb.append(' ');
@@ -132,9 +135,11 @@ public final class LyricsRomanizer {
                 } else if (ScriptDetector.contains(reading, Character.UnicodeScript.HANGUL)) {
                     reading = HangulRomanizer.romanize(reading).trim();
                 } else if (ScriptDetector.containsKana(reading)) {
-                    reading = KanaRomanizer.romanize(reading).trim();
+                    if (!allowTransliteration) {
+                        reading = KanaRomanizer.romanize(reading).trim();
+                    }
                 }
-                if (allowTransliteration || isPurelyLatinScript(reading)) {
+                if (allowTransliteration || isReadingScript(reading)) {
                     return reading;
                 }
             }
@@ -146,9 +151,9 @@ public final class LyricsRomanizer {
             if (ScriptDetector.contains(original, Character.UnicodeScript.HANGUL)) {
                 fallback = HangulRomanizer.romanize(original).trim();
             } else if (ScriptDetector.containsKana(original)) {
-                fallback = KanaRomanizer.romanize(original).trim();
+                fallback = allowTransliteration ? original.trim() : KanaRomanizer.romanize(original).trim();
             }
-            if (fallback != null && (allowTransliteration || isPurelyLatinScript(fallback))) {
+            if (fallback != null && (allowTransliteration || isReadingScript(fallback))) {
                 return fallback;
             }
         }
@@ -283,6 +288,11 @@ public final class LyricsRomanizer {
     public static void romanize(TrackInfo track, Lyrics lyrics, String source, Callback callback) {
         Utils.verifyOnMainThread();
 
+        if (LyricsRequests.isRomanizationOff()) {
+            callback.onRomanized(null, false, false, null, false, null, false, true);
+            return;
+        }
+
         boolean anyLineHasWords = false;
         for (LyricsLine l : lyrics.lines()) {
             if (l.hasWords()) {
@@ -298,15 +308,16 @@ public final class LyricsRomanizer {
                 Settings.LYRICS_ROMANIZATION_PROVIDERS.get(),
                 AiProviders.ROMANIZATION_ORDER);
         if (providers.isEmpty()) {
-            callback.onRomanized(null, false, false, null, false, null, false);
+            callback.onRomanized(null, false, false, null, false, null, false, false);
             return;
         }
 
         // Local readers cost no request and know for themselves whether they have a reading.
+        // ICU does not count: it is on by default and would send Latin lyrics to Google first.
         final boolean hasLocalReader = providers.contains(AiProviders.RIME)
                 || providers.contains(AiProviders.LOCAL);
         if (!hasLocalReader && !LyricsLanguageDetector.needsRomanization(lyrics.lines())) {
-            callback.onRomanized(null, false, false, null, false, null, true);
+            callback.onRomanized(null, false, false, null, false, null, false, true);
             return;
         }
 
@@ -322,7 +333,7 @@ public final class LyricsRomanizer {
             boolean hasWordRomaji = (perWord
                     && hasUsableWordReading(lyrics.lines(), allowTransliteration))
                     || (isWordSynced && hasUsableWordReading(result, allowTransliteration));
-            callback.onRomanized(result, false, false, null, hasWordRomaji, null, false);
+            callback.onRomanized(result, false, false, null, hasWordRomaji, null, true, false);
             return;
         }
 
@@ -355,7 +366,7 @@ public final class LyricsRomanizer {
                                 lyrics.lines(), allowTransliteration));
                         Utils.runOnMainThread(() -> callback.onRomanized(
                                 finalResult, result.fromGoogle(), result.fromAI(), result.model(),
-                                hasWordRomaji, result.localDictionary(), false));
+                                hasWordRomaji, result.localDictionary(), fromSource, false));
                         return;
                     } catch (Exception ex) {
                         Logger.printInfo(() -> "romanization provider failed: " + provider, ex);
@@ -363,11 +374,11 @@ public final class LyricsRomanizer {
                 }
 
                 Utils.runOnMainThread(
-                        () -> callback.onRomanized(null, false, false, null, false, null, false));
+                        () -> callback.onRomanized(null, false, false, null, false, null, false, false));
             } catch (Exception ex) {
                 Logger.printInfo(() -> "romanize failure", ex);
                 Utils.runOnMainThread(
-                        () -> callback.onRomanized(null, false, false, null, false, null, false));
+                        () -> callback.onRomanized(null, false, false, null, false, null, false, false));
             }
         });
     }
@@ -396,6 +407,9 @@ public final class LyricsRomanizer {
         if (AiProviders.RIME.equals(provider)) {
             return romanizeRime(lyrics, lines, isWordSynced);
         }
+        if (AiProviders.ICU.equals(provider)) {
+            return romanizeIcu(lyrics, lines, isWordSynced);
+        }
         if (AiProviders.isAi(provider)) {
             return romanizeAi(provider, track, lyrics, source, lines, isWordSynced,
                     allowTransliteration);
@@ -405,6 +419,25 @@ public final class LyricsRomanizer {
                     allowTransliteration);
         }
         return null;
+    }
+
+    /**
+     * System ICU transliterator: no download, takes turn after offline dictionaries. Lyrics already
+     * in Latin script have nothing to read, and transliterating them would only strip the accents.
+     */
+    @Nullable
+    private static ProviderResult romanizeIcu(Lyrics lyrics, List<String> lines,
+                                              boolean isWordSynced) {
+        if (!LyricsLanguageDetector.needsRomanization(lyrics.lines())) {
+            return null;
+        }
+        List<String> read = IcuRomanizer.romanize(lines);
+        List<LyricsLine> result = read != null ? toLines(read) : null;
+        if (!LyricsMerge.hasText(result)) {
+            return null;
+        }
+        List<LyricsLine> aligned = alignIfWordSynced(lyrics, result, isWordSynced);
+        return new ProviderResult(aligned, false, false, null, ICU_DICTIONARY);
     }
 
     /**
@@ -552,7 +585,7 @@ public final class LyricsRomanizer {
             for (int i = 0; i < result.size(); i++) {
                 String reading = result.get(i).text();
                 reading = reading != null ? reading.trim() : "";
-                if (reading.isEmpty() || isPurelyLatinScript(reading)) {
+                if (reading.isEmpty() || isReadingScript(reading)) {
                     continue;
                 }
                 // Word-synced requests can leave the line text unchanged when only the syllable
@@ -563,7 +596,7 @@ public final class LyricsRomanizer {
                         String romaji = wordReading(word, false);
                         String written = word.text() == null ? "" : word.text().trim();
                         if (!romaji.isEmpty() && !romaji.equals(written)
-                                && isPurelyLatinScript(romaji)) {
+                                && isReadingScript(romaji)) {
                             usable = true;
                             break;
                         }
@@ -702,7 +735,7 @@ public final class LyricsRomanizer {
             globalSyllableIndex += count;
 
             List<String> alignedChunks = List.of(LocalRomanizer.allocateReading(
-                    fullLineRom, count, romanizedGuides));
+                    fullLineRom, count, romanizedGuides, LocalRomanizer.hasCjkWord(origWords)));
 
             List<Word> romanizedWords = new ArrayList<>(count);
             StringBuilder lineRomBuilder = new StringBuilder();
@@ -710,7 +743,7 @@ public final class LyricsRomanizer {
             for (int wIdx = 0; wIdx < count; wIdx++) {
                 Word w = origWords.get(wIdx);
                 String rom = (wIdx < alignedChunks.size() && alignedChunks.get(wIdx) != null) ? alignedChunks.get(wIdx) : "";
-                romanizedWords.add(new Word(w.startMs(), w.endMs(), w.text(), rom, w.endsWithSpace()));
+                romanizedWords.add(new Word(w.startMs(), w.endMs(), w.text(), rom, w.endsWithSpace(), w.ruby()));
                 if (lineRomBuilder.length() > 0 && lineRomBuilder.charAt(lineRomBuilder.length() - 1) != ' ') {
                     lineRomBuilder.append(' ');
                 }
@@ -1051,7 +1084,8 @@ public final class LyricsRomanizer {
                     }
                     totalTokens++;
                     totalChars += t.length();
-                    if (t.length() == 1 && Character.isLetter(t.charAt(0))) {
+                    if (t.length() == 1 && Character.isLetter(t.charAt(0))
+                            && !(japaneseSource && isJapaneseSingleLetterMora(t.charAt(0)))) {
                         singleLetterTokens++;
                         allSingleLetterTokens++;
                     }
@@ -1128,7 +1162,8 @@ public final class LyricsRomanizer {
                             }
                             totalWordTokens++;
                             charWordTokens += t.length();
-                            if (t.length() == 1 && Character.isLetter(t.charAt(0))) {
+                            if (t.length() == 1 && Character.isLetter(t.charAt(0))
+                                    && !(japaneseSource && isJapaneseSingleLetterMora(t.charAt(0)))) {
                                 singleWordTokens++;
                                 allSingleWordTokens++;
                             }
@@ -1167,6 +1202,13 @@ public final class LyricsRomanizer {
         return false;
     }
 
+    private static boolean isJapaneseSingleLetterMora(char c) {
+        return switch (Character.toLowerCase(c)) {
+            case 'a', 'i', 'u', 'e', 'o', 'n' -> true;
+            default -> false;
+        };
+    }
+
     private static List<LyricsLine> alignLinesToWordSync(@Nullable Lyrics lyrics, @Nullable List<LyricsLine> rLines) {
         if (lyrics == null || lyrics.lines() == null || rLines == null) {
             return rLines;
@@ -1191,12 +1233,13 @@ public final class LyricsRomanizer {
             }
             List<Word> origWords = orig.words();
             List<String> alignedChunks = List.of(LocalRomanizer.allocateReading(
-                    fullRoma, origWords.size(), guidesForWords(origWords, fullRoma)));
+                    fullRoma, origWords.size(), guidesForWords(origWords, fullRoma),
+                    LocalRomanizer.hasCjkWord(origWords)));
             List<Word> rWords = new ArrayList<>(origWords.size());
             for (int w = 0; w < origWords.size(); w++) {
                 Word ow = origWords.get(w);
                 String chunk = (w < alignedChunks.size()) ? alignedChunks.get(w) : "";
-                rWords.add(new Word(ow.startMs(), ow.endMs(), ow.text(), chunk, ow.endsWithSpace()));
+                rWords.add(new Word(ow.startMs(), ow.endMs(), ow.text(), chunk, ow.endsWithSpace(), ow.ruby()));
             }
             out.add(new LyricsLine(orig.startTimeMs(), orig.endTimeMs(), fullRoma, rWords,
                     orig.agentId(), orig.isDuet(), orig.isBG(), orig.songPart()));
@@ -1239,6 +1282,18 @@ public final class LyricsRomanizer {
         return true;
     }
 
+    /**
+     * Scripts that can serve as a reading without the transliteration gate: Latin letters, and the
+     * phonetic script kana, whose symbols say how a character sounds. Text that still
+     * holds Han characters is not a reading of them, but the written line itself.
+     */
+    private static boolean isReadingScript(String text) {
+        if (text == null || text.isEmpty()) return true;
+        if (isPurelyLatinScript(text)) return true;
+        return ScriptDetector.containsKana(text)
+                && !ScriptDetector.contains(text, Character.UnicodeScript.HAN);
+    }
+
     /** A local reading per word, used only to choose which whole tokens belong together. */
     private static List<String> guidesForWords(List<Word> words, String fullText) {
         final boolean allowTransliteration = Settings.LYRICS_ALLOW_TRANSLITERATION.get();
@@ -1260,10 +1315,11 @@ public final class LyricsRomanizer {
     }
 
     public interface Callback {
-        /** @param skipped No provider was asked anything, so a caller reports nothing to do. */
+        // @param fromEmbedded source reading was the provider; @param skipped nothing was asked
         void onRomanized(@Nullable List<LyricsLine> romanizedLines,
                          boolean fromGoogle, boolean fromAI, @Nullable String aiModel,
-                         boolean perWord, @Nullable String localDictionary, boolean skipped);
+                         boolean perWord, @Nullable String localDictionary,
+                         boolean fromEmbedded, boolean skipped);
 
     }
 
