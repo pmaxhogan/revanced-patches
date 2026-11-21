@@ -1,0 +1,25 @@
+# Vantage baked-in setting defaults, applied to Settings.java at BUILD time by
+# vantage/apply-defaults.py (run from .github/workflows/build-mpp.yml).
+# Settings.java itself stays byte-identical to upstream so the nightly sync never
+# conflicts on it. Columns are TAB separated: setting key, upstream default, Vantage default.
+# The script fails the build unless `("<key>", <upstream default>` occurs exactly once,
+# so an upstream rename or default change is caught loudly instead of silently dropped.
+morphe_dearrow_titles	FALSE	TRUE
+revanced_alt_thumbnail_home	ThumbnailOption.ORIGINAL	ThumbnailOption.DEARROW
+revanced_alt_thumbnail_player	ThumbnailOption.ORIGINAL	ThumbnailOption.DEARROW
+revanced_alt_thumbnail_search	ThumbnailOption.ORIGINAL	ThumbnailOption.DEARROW
+revanced_alt_thumbnail_subscriptions	ThumbnailOption.ORIGINAL	ThumbnailOption.DEARROW
+revanced_alt_thumbnail_library	ThumbnailOption.ORIGINAL	ThumbnailOption.DEARROW
+revanced_hide_playables	FALSE	TRUE
+revanced_hide_community_posts_channel	FALSE	TRUE
+revanced_hide_community_posts_subscriptions	FALSE	TRUE
+revanced_change_start_page	StartPage.DEFAULT	StartPage.SUBSCRIPTIONS
+revanced_hide_navigation_shorts_button	FALSE	TRUE
+revanced_hide_comments_section	FALSE	TRUE
+revanced_overlay_button_copy_video_url	FALSE	TRUE
+revanced_overlay_button_copy_video_url_timestamp	FALSE	TRUE
+revanced_hide_ai_generated_video_summary_section	FALSE	TRUE
+revanced_hide_ask_section	FALSE	TRUE
+revanced_hide_shorts_shelf	FALSE	TRUE
+revanced_hide_shorts_shelf_channel	FALSE	TRUE
+revanced_hide_shorts_shelf_history	FALSE	TRUE

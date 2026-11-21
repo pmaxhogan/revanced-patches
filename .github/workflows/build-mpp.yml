@@ -1,7 +1,7 @@
 name: Build patches (.mpp)
 
 # Builds the anddea patches bundle (.mpp) FROM SOURCE with Max's baked-in setting
-# defaults (see Settings.java), and publishes it as a Release that the Vantage
+# defaults (see vantage/defaults.tsv), and publishes it as a Release that the Vantage
 # builder consumes. No PAT/secrets needed: the MorpheApp Maven packages are public
 # and resolve with the built-in GITHUB_TOKEN. Android SDK is preinstalled on the
 # ubuntu-latest runner image.
@@ -12,6 +12,12 @@ name: Build patches (.mpp)
 # used for the release tag/asset name and passed to Gradle via -Pversion so the
 # built .mpp carries it too. Bump VANTAGE_REV below for a Vantage-only rebuild on
 # the same upstream version (an upstream bump already yields a fresh tag on its own).
+#
+# DEFAULTS: Settings.java is likewise kept byte-identical to upstream. The Vantage
+# default flips live in vantage/defaults.tsv and are applied to the checked-out
+# source by vantage/apply-defaults.py just before the Gradle build. The script fails
+# this job if any row no longer matches upstream exactly once (renamed key, changed
+# default) - fix the row in defaults.tsv and push.
 on:
   push:
     branches: [dev]
@@ -22,6 +28,7 @@ on:
       - 'gradle.properties'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
+      - 'vantage/**'
       - '.github/workflows/build-mpp.yml'
   workflow_dispatch:
 
@@ -58,6 +65,9 @@ jobs:
           VVER="${BASE}-vantage.${VANTAGE_REV}"
           echo "VVER=$VVER" >> "$GITHUB_ENV"
           echo "Building Vantage version $VVER (upstream base $BASE, rev $VANTAGE_REV)"
+
+      - name: Apply Vantage setting defaults
+        run: python3 vantage/apply-defaults.py
 
       - name: Build the .mpp
         env:

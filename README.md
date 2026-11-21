@@ -2,9 +2,11 @@
 > with a few Vantage defaults baked in (Shorts hard-disabled, Playables and the AI description
 > sections hidden, DeArrow thumbnails on, Subscriptions as the start page, ...) so a fresh
 > [Vantage](https://github.com/pmaxhogan/vantage) install needs no settings changes. The delta
-> over upstream is only `ShortsPatch.java`, `youtube/settings/Settings.java`, a class-init
-> deadlock fix in `youtube/utils/ExtendedUtils.java`, the PiP hook on 21.04+, and the two workflows
-> in `.github/workflows/` (nightly upstream sync + `.mpp` build). Patches that exist only for
+> over upstream is only one line in `ShortsPatch.java` (plus `VantageShorts.java`), a class-init
+> deadlock fix in `youtube/utils/ExtendedUtils.java`, the PiP hook on 21.04+, the `vantage/`
+> folder (setting defaults applied to `Settings.java` at build time, so that file stays identical
+> to upstream), and the two workflows in `.github/workflows/` (nightly upstream sync + `.mpp`
+> build). Patches that exist only for
 > Vantage live in the separate, much smaller
 > [vantage-patches](https://github.com/pmaxhogan/vantage-patches) bundle, which is stacked on
 > top of this one at build time. Everything below is upstream's README.

@@ -113,6 +113,20 @@ jobs:
           done
           echo "mergeable=$STATE"
 
+          # Vantage setting defaults are applied to Settings.java at build time from
+          # vantage/defaults.tsv (see build-mpp.yml). A clean git merge says nothing
+          # about whether those rows still match upstream's Settings.java, so check
+          # them against the PR head BEFORE merging. On a mismatch leave the PR open:
+          # fix the row(s) in vantage/defaults.tsv on dev, then re-run this workflow.
+          SETTINGS="extensions/shared/src/main/java/app/morphe/extension/youtube/settings/Settings.java"
+          if [ "$STATE" = "MERGEABLE" ]; then
+            if ! { git checkout --quiet "$HSHA" -- "$SETTINGS" && python3 vantage/apply-defaults.py --check; }; then
+              gh pr edit "$NUM" --repo "$GITHUB_REPOSITORY" --add-label needs-manual-merge 2>/dev/null || true
+              echo "::warning::Sync PR #$NUM merges cleanly but vantage/defaults.tsv no longer matches upstream Settings.java - left open. Update defaults.tsv on dev and re-run."
+              exit 0
+            fi
+          fi
+
           if [ "$STATE" = "MERGEABLE" ]; then
             gh pr merge "$NUM" --repo "$GITHUB_REPOSITORY" --merge
             echo "Auto-merged sync PR #$NUM (clean). build-mpp.yml will rebuild the .mpp."
